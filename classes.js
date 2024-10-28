@@ -35,7 +35,7 @@ class Environment {
 
   draw() {
     for (let fairy of this.fairies) {
-      fairy.draw()
+      fairy.draw();
     }
     this.guide.draw();
   }
@@ -58,15 +58,17 @@ class Fairy {
     this.col = [random(255), 100, 100]
 
     this.guided = false;
-    this.forceConst = -20;
+    this.forceConst = 5;
     this.angle = random(TWO_PI);
 
   }
 
   isGuided(guide) {
-    if (dist(this.x, this.y, guide.x, guide.y) <= guide.attractionRad / 2) {
+    let distance = dist(this.x, this.y, guide.x, guide.y)
+    if (distance <= guide.attractionRad / 2) {
       console.log("guided")
       this.guided = true;
+      // this.rad =  distance;
     }
   }
 
@@ -77,28 +79,38 @@ class Fairy {
 
   getForce(guide) {
     // get distances and normal vectors
-    const dx = this.x - guide.x;
-    const dy = this.y - guide.y;
+    const dx = guide.x - this.x;
+    const dy = guide.y - this.y;
     const distance = Math.sqrt(dx * dx + dy * dy)
-    const safeDist = Math.max(distance, 1);  // no infinity forces
+    const safeDist = Math.max(distance, guide.size);  // no infinity forces
     const normal_x = dx / safeDist
     const normal_y = dy / safeDist
-    // make sure that we don't take sqrt of neg. number
-    const mu = abs(this.forceConst * (this.m + guide.m))
+    const tangent_x = -normal_y;
+    const tangent_y = normal_x;
     // this is needed to have a possibility of a stable orbit
-    let orbitalSpeed = Math.sqrt((2 * mu) / this.rad) * (this.forceConst < 0 ? -1 : 1)
+    let orbitalSpeed = Math.sqrt((guide.m * this.forceConst) / this.rad)
     this.vx = normal_x * orbitalSpeed
     this.vy = normal_y * orbitalSpeed
 
+    // this.vx = tangent_x * orbitalSpeed
+    // this.vy = tangent_y * orbitalSpeed
+
     // define force
-    const force = (this.forceConst * this.m * guide.m) / (distance * distance);
+    const fg = (this.forceConst * this.m * guide.m) / (distance * distance); // g * (Mm) / r**2
+    const f_zp = (orbitalSpeed * orbitalSpeed) / distance // v**2 / r
+    const f_repulsive = -2 *fg;
+    // const f_repulsive = 0;
+    let force = fg // +f_zp
+    if (distance < guide.repulsionRad) {
+      force += f_repulsive;
+    }
     this.fx = force * normal_x;
     this.fy = force * normal_y;
   }
 
   move(dt) {
     if (this.guided) {
-      this.angle += TWO_PI / 100;
+      // this.angle += TWO_PI / 100;
       this.vx += (this.fx / this.m) * dt
       this.vy += (this.fy / this.m) * dt
     } else {
@@ -122,9 +134,10 @@ class Guide {
   constructor() {
     this.x = mouseX;
     this.y = mouseY;
-    this.m = 1000;
+    this.m = 2500;
     this.size = 20;
-    this.attractionRad = 100;
+    this.attractionRad = this.size * 5;
+    this.repulsionRad = this.size * 2;
     this.col = [49, 47, 100, 50]
   }
 
