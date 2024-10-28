@@ -15,6 +15,18 @@ class Environment {
     }
   }
 
+  releaseFairies() {
+    for (let fairy of this.fairies) {
+      if (fairy.guided) {
+        this.releaseFairy(fairy);
+      }
+    }
+  }
+
+  releaseFairy(fairy) {
+    fairy.release(this.guide)
+  }
+
   update() {
     // move elements
     this.guide.move()
@@ -44,14 +56,15 @@ class Fairy {
     this.vMax = 10
     this.vx = random(this.vMax) - 1;
     this.vy = random(this.vMax) - 1;
-    this.orbitalSpeed = 1;
-    this.pullback = 6;
+    this.orbitalSpeed = 0.6;
+    this.pullback = 5;
     this.drag = 0.95;
 
     this.size = 2;
     this.col = [random(255), 100, 100]
 
     this.guided = false;
+    this.released = false;
     this.forceConst = 5;
     this.angle = random(TWO_PI);
 
@@ -59,10 +72,10 @@ class Fairy {
 
   isGuided(guide) {
     let distance = dist(this.x, this.y, guide.x, guide.y)
-    if (distance <= guide.attractionRad / 2) {
-      console.log("guided")
+    if (distance <= guide.attractionRad && !this.released) {
       this.guided = true;
-      // this.rad =  distance;
+    } else if (distance > guide.attractionRad * 2) {
+      this.released = false;
     }
   }
 
@@ -85,16 +98,14 @@ class Fairy {
 
       // ensure fairy is not lost
       let R = guide.attractionRad;
-      if (distance >= R) {
+      if (distance > R) {
         const pullbackStrength = this.pullback * (distance - R);
         this.vx += pullbackStrength * normal_x;
         this.vy += pullbackStrength * normal_y;
       } else if (round(distance) == guide.attractionRad) {
         this.vx += normal_x * random(50) * (random() <= 0.5 ? -1 : 1);
         this.vy += normal_y * random(50) * (random() <= 0.5 ? -1 : 1);
-        console.log("adapted")
       }
-      console.log(distance + ", R = " + guide.attractionRad)
 
       // add orbital motion:
       this.vx += this.orbitalSpeed * tangent_x;
@@ -107,6 +118,22 @@ class Fairy {
       this.vx = random(this.vMax) * (random() <= 0.5 ? -1 : 1);
       this.vy = random(this.vMax) * (random() <= 0.5 ? 1 : -1);
     }
+  }
+
+  release(guide) {
+    const dx = guide.x - this.x;
+    const dy = guide.y - this.y;
+    const distance = Math.sqrt(dx * dx + dy * dy)
+    const safeDist = Math.max(distance, 1);  // no infinity forces
+    const normal_x = dx / safeDist
+    const normal_y = dy / safeDist
+
+    this.guided = false;
+    this.released = true;
+    this.x = guide.x
+    this.y = guide.y
+    // this.x = guide.x + normal_x * (1.1 * guide.attractionRad);
+    // this.y = guide.y + normal_y * (1.1 * guide.attractionRad);
   }
 
   move(dt) {

@@ -1,10 +1,8 @@
 let environ;
-let n = 1;
+let n = 20;
 
 function mouseClicked() {
-  for (let fairy of environ.fairies) {
-    fairy.guided = false;
-  }
+  environ.releaseFairies();
   environ.addFairies(5);
 }
 
