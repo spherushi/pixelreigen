@@ -3,7 +3,7 @@ let n = 20;
 
 function mouseClicked() {
   environ.releaseFairies();
-  environ.addFairies(5);
+  // environ.addFairies(5);
 }
 
 function setup() {
