@@ -1,5 +1,5 @@
 let environ;
-let n = 20;
+let n = 50;
 
 function mouseClicked() {
   environ.releaseFairies();
@@ -7,8 +7,9 @@ function mouseClicked() {
 }
 
 function setup() {
-  colorMode(HSB)
-  ellipseMode(RADIUS)
+  colorMode(HSB);
+  ellipseMode(RADIUS);
+  rectMode(RADIUS);
   createCanvas(windowWidth, windowHeight);
   environ = new Environment(n);
 }
