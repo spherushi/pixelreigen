@@ -22,15 +22,8 @@ class Environment {
       fairy.move(this.dt);
       // check for guidance
       fairy.isGuided(this.guide);
-      if (fairy.guided) {
-        // attract fairies?
-        fairy.getForce(this.guide);
-        // fairy.attachTo(this.guide)
-      }
+      fairy.updateVelocity(this.guide);
     }
-
-
-
   }
 
   draw() {
@@ -48,13 +41,14 @@ class Fairy {
     this.rad = map(random(), 0, 1, guide.size + 1, guide.attractionRad)
     this.x = random(width);
     this.y = random(height);
-    this.vMax = 5
+    this.vMax = 10
     this.vx = random(this.vMax) - 1;
     this.vy = random(this.vMax) - 1;
-    this.fx = 0;
-    this.fy = 0;
+    this.orbitalSpeed = 1;
+    this.pullback = 6;
+    this.drag = 0.95;
 
-    this.size = 5;
+    this.size = 2;
     this.col = [random(255), 100, 100]
 
     this.guided = false;
@@ -77,46 +71,45 @@ class Fairy {
     this.y = guide.y + guide.attractionRad * sin(this.angle)
   }
 
-  getForce(guide) {
-    // get distances and normal vectors
-    const dx = guide.x - this.x;
-    const dy = guide.y - this.y;
-    const distance = Math.sqrt(dx * dx + dy * dy)
-    const safeDist = Math.max(distance, guide.size);  // no infinity forces
-    const normal_x = dx / safeDist
-    const normal_y = dy / safeDist
-    const tangent_x = -normal_y;
-    const tangent_y = normal_x;
-    // this is needed to have a possibility of a stable orbit
-    let orbitalSpeed = Math.sqrt((guide.m * this.forceConst) / this.rad)
-    this.vx = normal_x * orbitalSpeed
-    this.vy = normal_y * orbitalSpeed
+  updateVelocity(guide) {
+    if (this.guided) {
+      // get distances and normal vectors
+      const dx = guide.x - this.x;
+      const dy = guide.y - this.y;
+      const distance = Math.sqrt(dx * dx + dy * dy)
+      const safeDist = Math.max(distance, 1);  // no infinity forces
+      const normal_x = dx / safeDist
+      const normal_y = dy / safeDist
+      const tangent_x = -normal_y;
+      const tangent_y = normal_x;
 
-    // this.vx = tangent_x * orbitalSpeed
-    // this.vy = tangent_y * orbitalSpeed
+      // ensure fairy is not lost
+      let R = guide.attractionRad;
+      if (distance >= R) {
+        const pullbackStrength = this.pullback * (distance - R);
+        this.vx += pullbackStrength * normal_x;
+        this.vy += pullbackStrength * normal_y;
+      } else if (round(distance) == guide.attractionRad) {
+        this.vx += normal_x * random(50) * (random() <= 0.5 ? -1 : 1);
+        this.vy += normal_y * random(50) * (random() <= 0.5 ? -1 : 1);
+        console.log("adapted")
+      }
+      console.log(distance + ", R = " + guide.attractionRad)
 
-    // define force
-    const fg = (this.forceConst * this.m * guide.m) / (distance * distance); // g * (Mm) / r**2
-    const f_zp = (orbitalSpeed * orbitalSpeed) / distance // v**2 / r
-    const f_repulsive = -2 *fg;
-    // const f_repulsive = 0;
-    let force = fg // +f_zp
-    if (distance < guide.repulsionRad) {
-      force += f_repulsive;
+      // add orbital motion:
+      this.vx += this.orbitalSpeed * tangent_x;
+      this.vy += this.orbitalSpeed * tangent_y;
+
+      // add drag??
+      this.vx *= this.drag;
+      this.vy *= this.drag;
+    } else {
+      this.vx = random(this.vMax) * (random() <= 0.5 ? -1 : 1);
+      this.vy = random(this.vMax) * (random() <= 0.5 ? 1 : -1);
     }
-    this.fx = force * normal_x;
-    this.fy = force * normal_y;
   }
 
   move(dt) {
-    if (this.guided) {
-      // this.angle += TWO_PI / 100;
-      this.vx += (this.fx / this.m) * dt
-      this.vy += (this.fy / this.m) * dt
-    } else {
-      this.vx = random(this.vMax) * (random() > 0.5 ? 1 : -1);
-      this.vy = random(this.vMax) * (random() > 0.5 ? 1 : -1);
-    }
     this.x += this.vx * dt;
     this.y += this.vy * dt;
   }
@@ -135,7 +128,7 @@ class Guide {
     this.x = mouseX;
     this.y = mouseY;
     this.m = 2500;
-    this.size = 20;
+    this.size = 10;
     this.attractionRad = this.size * 5;
     this.repulsionRad = this.size * 2;
     this.col = [49, 47, 100, 50]

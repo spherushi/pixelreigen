@@ -10,6 +10,7 @@ function mouseClicked() {
 
 function setup() {
   colorMode(HSB)
+  ellipseMode(RADIUS)
   createCanvas(windowWidth, windowHeight);
   environ = new Environment(n);
 }
