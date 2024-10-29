@@ -1,4 +1,16 @@
 
+class Timer {
+  constructor(durationInSeconds) {
+    this.timeStart = millis()
+    // this.timeEnd = this.timeStart + durationInSeconds * 1000;
+    this.timeEnd = millis() + (durationInSeconds * 1000);
+  }
+
+  isOver() {
+    return (millis() >= this.timeEnd);
+  }
+}
+
 class Environment {
   constructor(nFairies) {
     this.skyCol = [240, 12, 10];
@@ -20,6 +32,8 @@ class Environment {
     }
     // goal
     this.oasis = new Oasis(this.availableColors);
+    this.timeInOasis = 0;  // s
+    this.timeToRelease = 2 * 60;  // s
 
     // state variables
     this.gameOver = false;
@@ -85,13 +99,21 @@ class Environment {
     if (this.capturedFairies <= 3) {
       this.blackHole.follow(this.guide)
     }
-    // oasis may save fairies without click?
+    // oasis saves fairies after hover duration 
+    if (this.guide.withinOasis(this.oasis)) {
+      this.timeInOasis++;
+      if (this.timeInOasis > this.timeToRelease) {
+        this.releaseFairies();
+      }
+    } else {
+      this.timeInOasis = 0;
+    }
     // this.oasis.interact(this.guide, this.fairies)
     this.savedFairies = 0;
     this.capturedFairies = 0;
     for (let fairy of this.fairies) {
       fairy.moveAll(this.dt, this.oasis);
-      fairy.update(this.guide, this.blackHole);
+      fairy.update(this.guide, this.blackHole, this.oasis);
       if (fairy.saved) {
         this.savedFairies++;
       } else if (fairy.captured) {
@@ -119,7 +141,7 @@ class Environment {
         fairy.draw();
       }
       this.guide.draw();
-      this.blackHole.draw();
+      this.blackHole.draw(0.8);
     } else if (this.gameOver) {
       this.blackHole.size = width / 2;
       this.blackHole.x = width / 2;
@@ -165,6 +187,8 @@ class Fairy {
     // this.m = map(random(), 0, 1, 1, 5);  // can't have 0 mass!
     this.m = 1
     this.rad = map(random(), 0, 1, guide.size + 1, guide.attractionRad)
+    this.ogRad = this.rad;
+    this.phase = random(TWO_PI)
     this.x = random(width);
     this.y = random(height);
     this.vMax = 10
@@ -194,6 +218,7 @@ class Fairy {
     this.guided = false;
     this.released = false;
     this.saved = false;
+    this.danceTimer = new Timer(0);
     this.savedCenterX = 0;
     this.savedCenterY = 0;
     this.forceConst = 5;
@@ -201,12 +226,8 @@ class Fairy {
 
   }
 
-  moveAll(dt, oasis) {
-    this.move(dt)
-    this.moveSaved(oasis)
-  }
 
-  update(guide, blackHole) {
+  update(guide, blackHole, oasis) {
     this.isGuided(guide);
     this.isCaptured(blackHole)
     if (this.guided) {
@@ -216,31 +237,11 @@ class Fairy {
     } else {
       this.updateVelocityFree();
     }
-  }
-
-  isCaptured(blackHole) {
-    let distance = dist(this.x, this.y, blackHole.x, blackHole.y)
-    if (distance <= blackHole.attractionRad && !this.saved) {
-      this.captured = true;
-      // blackHole.capturedFairies++;
-    }
-  }
-
-  isGuided(guide) {
-    let distance = dist(this.x, this.y, guide.x, guide.y)
-    if (distance <= guide.attractionRad &&
-      !this.released &&
-      !this.saved) {
-      if (this.captured) {
-        this.guided = random() <= guide.recaptureChance ? true : false;
-        if (this.guided) {
-          this.captured = false;
-        }
-      } else {
-        this.guided = true;
+    if (this.saved) {
+      this.rad = this.ogRad * sin(millis() / 1000 + this.phase)
+      if (!this.danceTimer.isOver()) {
+        this.rad *= 2;
       }
-    } else if (distance > guide.attractionRad * 2) {
-      this.released = false;
     }
   }
 
@@ -311,22 +312,11 @@ class Fairy {
       this.vx = 0;
       this.vy = 0;
     }
-
-
   }
 
-  release(guide) {
-    const dx = guide.x - this.x;
-    const dy = guide.y - this.y;
-    const distance = Math.sqrt(dx * dx + dy * dy)
-    const safeDist = Math.max(distance, 1);  // no infinity forces
-    const normal_x = dx / safeDist
-    const normal_y = dy / safeDist
-
-    this.guided = false;
-    this.released = true;
-    this.x = guide.x
-    this.y = guide.y
+  moveAll(dt, oasis) {
+    this.move(dt)
+    this.moveSaved(oasis)
   }
 
   move(dt) {
@@ -345,6 +335,48 @@ class Fairy {
     }
   }
 
+  isCaptured(blackHole) {
+    let distance = dist(this.x, this.y, blackHole.x, blackHole.y)
+    if (distance <= blackHole.attractionRad && !this.saved) {
+      this.captured = true;
+      this.drag = 0.5;
+      // blackHole.capturedFairies++;
+    } else {
+      this.drag = 0.95
+    }
+  }
+
+  isGuided(guide) {
+    let distance = dist(this.x, this.y, guide.x, guide.y)
+    if (distance <= guide.attractionRad &&
+      !this.released &&
+      !this.saved) {
+      if (this.captured) {
+        this.guided = random() <= guide.recaptureChance ? true : false;
+        if (this.guided) {
+          this.captured = false;
+        }
+      } else {
+        this.guided = true;
+      }
+    } else if (distance > guide.attractionRad * 2) {
+      this.released = false;
+    }
+  }
+
+  release(guide) {
+    const dx = guide.x - this.x;
+    const dy = guide.y - this.y;
+    const distance = Math.sqrt(dx * dx + dy * dy)
+    const safeDist = Math.max(distance, 1);  // no infinity forces
+    const normal_x = dx / safeDist
+    const normal_y = dy / safeDist
+
+    this.guided = false;
+    this.released = true;
+    this.x = guide.x
+    this.y = guide.y
+  }
   draw() {
     let drawCol = [...this.col]
     if (!this.saved) {
@@ -358,7 +390,20 @@ class Fairy {
     push()
     noStroke()
     fill(drawCol)
-    circle(this.x, this.y, this.size)
+    if (this.saved && !this.danceTimer.isOver()) {
+      push()
+      fill([...drawCol, 0.05])
+      circle(this.x, this.y, this.size * 5)
+      fill([...drawCol, 0.1])
+      circle(this.x, this.y, this.size * 4)
+      fill([...drawCol, 0.3])
+      circle(this.x, this.y, this.size * 2)
+      pop()
+      //   circle(this.x + random(50), this.y + random(50),
+      //     this.size * 5 * sin(millis()))
+    } else {
+      circle(this.x, this.y, this.size)
+    }
     pop()
   }
 }
@@ -373,6 +418,7 @@ class Guide {
     this.recaptureChance = 0.4;
     this.minRad = this.size;
     this.col = [49, 100, 76]  // HSL !!! COLOR !!!
+    this.gradient = this.setGradient(0.2)
     // this.col = [49, 47, 100]  // old HSB value
   }
 
@@ -381,22 +427,36 @@ class Guide {
     this.y = mouseY;
   }
 
-  draw() {
-    push()
-    noStroke();
-    fill(this.col)
+  withinOasis(oasis) {
+    let xRange = (this.x >= oasis.x - oasis.size) &&
+      (this.x <= oasis.x + oasis.size)
+    let yRange = (this.y >= oasis.y - oasis.size) &&
+      (this.y <= oasis.y + oasis.size)
+    return (xRange && yRange)
+  }
+
+  setGradient(midStop) {
     let myGradient = drawingContext.createRadialGradient(
       this.x, this.y, 0,   // inner rad
       this.x, this.y, this.attractionRad);  // outer rad
     // !!! THIS IS NOT HSB !!!
     let colorString = "hsla(" + this.col[0] + ", " + this.col[1] + "%, " + this.col[2] + "%, "
     myGradient.addColorStop(0, colorString + '1)');
-    myGradient.addColorStop(0.2, colorString + '0.3)');
+    myGradient.addColorStop(midStop, colorString + '0.4)');
     // myGradient.addColorStop(0.8, colorString + '0.1)');
     myGradient.addColorStop(1, colorString + '0)');
-    drawingContext.fillStyle = myGradient;
+
+    return myGradient;
+  }
+
+  draw(midStop = 0.2) {
+    push()
+    noStroke();
+    fill(this.col)
+    drawingContext.fillStyle = this.gradient;
     drawingContext.strokeStyle = 'hsla(0, 100%, 50%, 1)';
     circle(this.x, this.y, this.attractionRad)
+    this.gradient = this.setGradient(midStop)
 
     noFill();
     stroke(255, 100, 100, 0.5)
@@ -441,7 +501,8 @@ class BlackHole extends Guide {
   }
 
   grow(capturedFairies) {
-    this.size = this.initialSize + capturedFairies * this.growFac;
+    this.size = Math.min(this.initialSize + capturedFairies * this.growFac, width / 3);
+    this.attractionRad = this.size;
   }
 
   bounceOffWalls() {
@@ -472,7 +533,7 @@ class Oasis {
     this.size = map(random(), 0, 1, this.minSize, this.maxSize)
     this.x = random(this.size, width - this.size);
     this.y = random(height);
-    this.vMax = 5;
+    this.vMax = 3;
     this.vx = random(this.vMax * 2) - this.vMax;
     this.vy = random(this.vMax * 2) - this.vMax;
     this.fairyCapacity = map(random(), 0, 1, 5, 10)
@@ -499,22 +560,16 @@ class Oasis {
     return this.currentlySaved >= this.fairyCapacity;
   }
 
-  withinOasis(guide) {
-    let xRange = (guide.x >= this.x - this.size) &&
-      (guide.x <= this.x + this.size)
-    let yRange = (guide.y >= this.y - this.size) &&
-      (guide.y <= this.y + this.size)
-    return (xRange && yRange)
-  }
-
   saveFairy(fairy) {
     fairy.x = this.x + this.size;
     fairy.y = this.y + this.size;
     fairy.savedCenterX = this.x;
     fairy.savedCenterY = this.y;
     fairy.rad = this.size
+    fairy.ogRad = fairy.rad;
     fairy.saved = true;
     fairy.guided = false;
+    fairy.danceTimer = new Timer(8);
   }
 
   setColor() {
@@ -556,7 +611,7 @@ class Oasis {
   }
 
   interact(guide, fairies) {
-    if (this.withinOasis(guide)) {
+    if (guide.withinOasis(this)) {
       for (let fairy of fairies) {
         if (fairy.col[0] == this.col[0] && fairy.guided) {
           this.saveFairy(fairy);

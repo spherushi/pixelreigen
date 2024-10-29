@@ -1,10 +1,10 @@
 let environ;
 let n = 50;
 
-function mouseClicked() {
-  environ.releaseFairies();
-  // environ.addFairies(5);
-}
+// function mouseClicked() {
+//   environ.releaseFairies();
+//   // environ.addFairies(5);
+// }
 
 function setup() {
   colorMode(HSB);
