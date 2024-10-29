@@ -1,40 +1,48 @@
 
 class Environment {
   constructor(nFairies) {
+    // fairies
     this.nFairies = nFairies;
     this.savedFairies = 0;
-    this.dt = 0.1
     this.fairies = [];
+    // player & opponent
     this.guide = new Guide();
     this.blackHole = new BlackHole();
     this.availableColors = [];
     for (let i = 0; i < this.nFairies; i++) {
       let fairy = new Fairy(this.guide);
-      if (!this.availableColors.includes(fairy.col)) {
+      if (this.colorAvailable(fairy)) {
         this.availableColors.push(fairy.col)
       }
       this.fairies.push(fairy);
     }
+    // goal
     this.oasis = new Oasis(this.availableColors);
+
+    // state variables
     this.gameOver = false;
     this.won = false;
+    // game parameters
+    this.dt = 0.1
   }
 
   reset() {
-    this.dt = 0.1
+    // reset elements
     this.fairies = [];
     this.guide = new Guide();
     this.blackHole = new BlackHole();
     this.availableColors = [];
     for (let i = 0; i < this.nFairies; i++) {
       let fairy = new Fairy(this.guide);
-      if (!this.availableColors.includes(fairy.col)) {
+      if (this.colorAvailable(fairy)) {
         this.availableColors.push(fairy.col)
       }
       this.fairies.push(fairy);
     }
     this.oasis = new Oasis(this.availableColors);
+    // reset state
     this.gameOver = false;
+    this.won = false;
   }
 
   addFairies(nFairies) {
@@ -44,22 +52,33 @@ class Environment {
   }
 
   releaseFairies() {
+    // if fairies in oasis they'll be saved
     this.oasis.interact(this.guide, this.fairies)
+    // otherwise they just start their journey again
     for (let fairy of this.fairies) {
       if (fairy.guided) {
-        this.releaseFairy(fairy);
+        fairy.release(this.guide);
       }
     }
   }
 
-  releaseFairy(fairy) {
-    fairy.release(this.guide)
+  colorAvailable(fairy) {
+    let available = true;
+    for (let col of this.availableColors) {
+      if (col[0] == fairy.col[0] &&
+        col[1] == fairy.col[1] &&
+        col[2] == fairy.col[2]
+      ) {
+        available = false;
+      }
+    }
+    return available;
   }
 
   fetchColors() {
     this.availableColors = [];
     for (let fairy of this.fairies) {
-      if (!fairy.saved && !this.availableColors.includes(fairy.col)) {
+      if (!fairy.saved && this.colorAvailable(fairy)) {
         this.availableColors.push(fairy.col)
       }
     }
@@ -78,6 +97,7 @@ class Environment {
     this.savedFairies = 0;
     for (let fairy of this.fairies) {
       fairy.move(this.dt);
+      fairy.moveSaved(this.oasis);
       // check for guidance and capture
       fairy.isGuided(this.guide);
       fairy.isCaptured(this.blackHole);
@@ -147,8 +167,11 @@ class Fairy {
     this.vMax = 10
     this.vx = random(this.vMax) - 1;
     this.vy = random(this.vMax) - 1;
-    this.orbitalSpeed = 0.6;
-    this.pullback = 5;
+    // this.orbitalSpeed = 0.6;
+    // this.pullback = 5;
+    // this.drag = 0.95;
+    this.orbitalSpeed = 0.3;
+    this.pullback = 10;
     this.drag = 0.95;
 
     this.size = 2;
@@ -203,11 +226,6 @@ class Fairy {
       this.released = false;
     }
   }
-
-  // attachTo(guide) {
-  //   this.x = guide.x + guide.attractionRad * cos(this.angle)
-  //   this.y = guide.y + guide.attractionRad * sin(this.angle)
-  // }
 
   updateVelocityFree() {
     if (this.saved) {
@@ -265,11 +283,18 @@ class Fairy {
 
   move(dt) {
     if (this.saved) {
-      this.x = this.savedCenterX + this.rad * cos(this.angle)
-      this.y = this.savedCenterY + this.rad * sin(this.angle)
+      // this.x = this.savedCenterX + this.rad * cos(this.angle)
+      // this.y = this.savedCenterY + this.rad * sin(this.angle)
     } else {
       this.x += this.vx * dt;
       this.y += this.vy * dt;
+    }
+  }
+
+  moveSaved(oasis) {
+    if (this.saved) {
+      this.x = oasis.x + this.rad * cos(this.angle)
+      this.y = oasis.y + this.rad * sin(this.angle)
     }
   }
 
