@@ -15,7 +15,6 @@ function setup() {
 }
 
 function draw() {
-  background(0);
   environ.update();
   environ.draw();
 
