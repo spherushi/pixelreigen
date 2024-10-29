@@ -82,6 +82,9 @@ class Environment {
     // blackhole may shrink guide radius:
     this.blackHole.interact(this.guide);
     this.blackHole.grow(this.capturedFairies);
+    if (this.capturedFairies <= 3) {
+      this.blackHole.follow(this.guide)
+    }
     // oasis may save fairies without click?
     // this.oasis.interact(this.guide, this.fairies)
     this.savedFairies = 0;
@@ -281,9 +284,9 @@ class Fairy {
     }
     // add random movement if at edge of radius
     // else if (round(distance) == round(R)) {
-      const randForce = random(30) * damp_rand;
-      ax += normal_x * randForce * (random() <= 0.5 ? -1 : 1);
-      ay += normal_y * randForce * (random() <= 0.5 ? -1 : 1);
+    const randForce = random(30) * damp_rand;
+    ax += normal_x * randForce * (random() <= 0.5 ? -1 : 1);
+    ay += normal_y * randForce * (random() <= 0.5 ? -1 : 1);
     // }
 
     // add orbital motion:
@@ -327,12 +330,12 @@ class Fairy {
   }
 
   move(dt) {
-      this.x += this.vx * dt;
-      this.y += this.vy * dt;
-  
-      // wrap around canvas
-      this.x = (width + this.x) % width;
-      this.y = (height + this.y) % height;
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+
+    // wrap around canvas
+    this.x = (width + this.x) % width;
+    this.y = (height + this.y) % height;
   }
 
   moveSaved(oasis) {
@@ -367,10 +370,10 @@ class Guide {
     this.m = 2500;
     this.size = 10;
     this.attractionRad = this.size * 5;
-    this.repulsionRad = this.size * 2;
     this.recaptureChance = 0.4;
     this.minRad = this.size;
-    this.col = [49, 47, 100, 50]
+    this.col = [49, 100, 76]  // HSL !!! COLOR !!!
+    // this.col = [49, 47, 100]  // old HSB value
   }
 
   move() {
@@ -382,9 +385,19 @@ class Guide {
     push()
     noStroke();
     fill(this.col)
-    circle(this.x, this.y, this.size)
-    drawingContext.shadowBlur = 320;
-    drawingContext.shadowColor = color(this.col);
+    let myGradient = drawingContext.createRadialGradient(
+      this.x, this.y, 0,   // inner rad
+      this.x, this.y, this.attractionRad);  // outer rad
+    // !!! THIS IS NOT HSB !!!
+    let colorString = "hsla(" + this.col[0] + ", " + this.col[1] + "%, " + this.col[2] + "%, "
+    myGradient.addColorStop(0, colorString + '1)');
+    myGradient.addColorStop(0.2, colorString + '0.3)');
+    // myGradient.addColorStop(0.8, colorString + '0.1)');
+    myGradient.addColorStop(1, colorString + '0)');
+    drawingContext.fillStyle = myGradient;
+    drawingContext.strokeStyle = 'hsla(0, 100%, 50%, 1)';
+    circle(this.x, this.y, this.attractionRad)
+
     noFill();
     stroke(255, 100, 100, 0.5)
     circle(this.x, this.y, this.attractionRad)
@@ -397,7 +410,7 @@ class BlackHole extends Guide {
     super()
     this.x = random(width);
     this.y = random(height);
-    this.vMax = 10;
+    this.vMax = 2;
     this.initialSize = this.size;
     this.v = random(this.vMax);
     this.shrinkGuide = 0.1;
@@ -411,6 +424,19 @@ class BlackHole extends Guide {
     if (dist(this.x, this.y, guide.x, guide.y) <= this.attractionRad + guide.attractionRad &&
       guide.attractionRad >= guide.minRad) {
       guide.attractionRad -= this.shrinkGuide;
+    }
+  }
+
+  follow(guide) {
+    if (this.x <= guide.x) {
+      this.x += this.vMax;
+    } else {
+      this.x -= this.vMax;
+    }
+    if (this.y <= guide.x) {
+      this.y += this.vMax;
+    } else {
+      this.y -= this.vMax;
     }
   }
 
