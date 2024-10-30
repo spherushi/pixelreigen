@@ -71,7 +71,7 @@ class Environment {
 
   releaseFairies() {
     // if fairies in oasis they'll be saved
-    this.oasis.interact(this.guide, this.fairies)
+    // this.oasis.interact(this.guide, this.fairies)
     // otherwise they just start their journey again
     for (let fairy of this.fairies) {
       if (fairy.guided) {
@@ -102,9 +102,8 @@ class Environment {
     // oasis saves fairies after hover duration 
     if (this.guide.withinOasis(this.oasis)) {
       this.timeInOasis++;
-      if (this.timeInOasis > this.timeToRelease) {
-        this.releaseFairies();
-      }
+      let canBeSaved = this.timeInOasis > this.timeToRelease
+      this.oasis.interact(this.guide, this.fairies, canBeSaved)
     } else {
       this.timeInOasis = 0;
     }
@@ -335,6 +334,21 @@ class Fairy {
     }
   }
 
+  withinOasis(oasis) {
+    let xRange = (this.x >= oasis.x - oasis.size) &&
+      (this.x <= oasis.x + oasis.size)
+    let yRange = (this.y >= oasis.y - oasis.size) &&
+      (this.y <= oasis.y + oasis.size)
+    return (xRange && yRange)
+  }
+
+  collideOasis(oasis) {
+    if (this.withinOasis(oasis)) {
+      this.x += oasis.size * (random() <= 0.5 ? -1 : 1)
+      this.y += oasis.size * (random() <= 0.5 ? -1 : 1)
+    }
+  }
+
   isCaptured(blackHole) {
     let distance = dist(this.x, this.y, blackHole.x, blackHole.y)
     if (distance <= blackHole.attractionRad && !this.saved) {
@@ -399,8 +413,6 @@ class Fairy {
       fill([...drawCol, 0.3])
       circle(this.x, this.y, this.size * 2)
       pop()
-      //   circle(this.x + random(50), this.y + random(50),
-      //     this.size * 5 * sin(millis()))
     } else {
       circle(this.x, this.y, this.size)
     }
@@ -415,7 +427,7 @@ class Guide {
     this.m = 2500;
     this.size = 10;
     this.attractionRad = this.size * 5;
-    this.recaptureChance = 0.4;
+    this.recaptureChance = 0.6;
     this.minRad = this.size;
     this.col = [49, 100, 76]  // HSL !!! COLOR !!!
     this.gradient = this.setGradient(0.2)
@@ -493,7 +505,7 @@ class BlackHole extends Guide {
     } else {
       this.x -= this.vMax;
     }
-    if (this.y <= guide.x) {
+    if (this.y <= guide.y) {
       this.y += this.vMax;
     } else {
       this.y -= this.vMax;
@@ -546,8 +558,8 @@ class Oasis {
 
   reset() {
     this.size = map(random(), 0, 1, this.minSize, this.maxSize);
-    this.x = random(this.size, width - this.size);
-    this.y = random(this.size, height - this.size);
+    // this.x = random(this.size, width - this.size);
+    // this.y = random(this.size, height - this.size);
     this.vx = random(this.vMax * 2) - this.vMax;
     this.vy = random(this.vMax * 2) - this.vMax;
     this.fairyCapacity = map(random(), 0, 1, 5, 10)
@@ -610,12 +622,14 @@ class Oasis {
     this.bounceOffWalls();
   }
 
-  interact(guide, fairies) {
+  interact(guide, fairies, canBeSaved) {
     if (guide.withinOasis(this)) {
       for (let fairy of fairies) {
-        if (fairy.col[0] == this.col[0] && fairy.guided) {
+        if (fairy.col[0] == this.col[0] && fairy.guided && canBeSaved) {
           this.saveFairy(fairy);
           this.currentlySaved++;
+        } else {
+          fairy.collideOasis(this)
         }
       }
     }
