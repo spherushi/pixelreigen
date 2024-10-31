@@ -7,7 +7,8 @@ function mouseClicked() {
 }
 
 function setup() {
-  colorMode(HSB);
+  // colorMode(HSB);
+  colorMode(HSB, 360, 100, 100, 1)
   ellipseMode(RADIUS);
   rectMode(RADIUS);
   createCanvas(windowWidth, windowHeight);

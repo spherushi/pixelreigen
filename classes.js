@@ -1,8 +1,24 @@
+const state = {
+  opponent: false
+}
+
+function hsbToRgb(hsb) {
+  let col = color(`hsba(${hsb[0]}, ${hsb[1]}%, ${hsb[2]}%, 1)`)
+  push()
+  colorMode(RGB);
+  let theRed = red(col);
+  let theGreen = green(col);
+  let theBlue = blue(col);
+
+  let rgb_col = [theRed, theGreen, theBlue]
+  pop()
+
+  return rgb_col;
+}
 
 class Timer {
   constructor(durationInSeconds) {
     this.timeStart = millis()
-    // this.timeEnd = this.timeStart + durationInSeconds * 1000;
     this.timeEnd = millis() + (durationInSeconds * 1000);
   }
 
@@ -19,6 +35,8 @@ class Environment {
     this.savedFairies = 0;
     this.capturedFairies = 0;
     this.fairies = [];
+    this.fairySpawnTime = 10;  // s
+    this.spawnTimer = new Timer(this.fairySpawnTime);
     // player & opponent
     this.guide = new Guide();
     this.blackHole = new BlackHole();
@@ -47,6 +65,7 @@ class Environment {
     this.fairies = [];
     this.savedFairies = 0;
     this.capturedFairies = 0;
+    this.spawnTimer = new Timer(this.fairySpawnTime);
     this.guide = new Guide();
     this.blackHole = new BlackHole();
     this.availableColors = [];
@@ -89,16 +108,17 @@ class Environment {
   update() {
     // move elements
     this.guide.move()
-    this.blackHole.move();
     this.oasis.move();
-    // blackhole may shrink guide radius:
-
-    //TODO: reactivate opponent
-    // this.blackHole.interact(this.guide);
-    // this.blackHole.grow(this.capturedFairies);
-    // if (this.capturedFairies <= 3) {
-    // this.blackHole.follow(this.guide)
-    // }
+    if (state.opponent) {
+      this.blackHole.move();
+      // blackhole may shrink guide radius:
+      this.blackHole.interactGuide(this.guide);
+      this.blackHole.interactOasis(this.oasis);
+      this.blackHole.grow(this.capturedFairies);
+      if (this.capturedFairies <= 1) {
+        this.blackHole.follow(this.guide)
+      }
+    }
     // oasis saves fairies after hover duration 
     if (this.guide.withinOasis(this.oasis)) {
       this.timeInOasis++;
@@ -115,12 +135,16 @@ class Environment {
       fairy.update(this.guide, this.blackHole)
       if (fairy.saved) {
         this.savedFairies++;
-      } else if (fairy.captured) {
+      } else if (fairy.captured && state.opponent) {
         this.capturedFairies++;
       }
     }
     if (this.oasis.isFull()) {
       this.oasis.reset();
+    }
+    if (this.spawnTimer.isOver()) {
+      this.fairies.push(new Fairy(this.guide))
+      this.spawnTimer = new Timer(this.fairySpawnTime)
     }
     this.fetchColors();
     this.oasis.colOptions = this.availableColors
@@ -140,7 +164,9 @@ class Environment {
         fairy.draw();
       }
       this.guide.draw();
-      // this.blackHole.draw(0.8);
+      if (state.opponent) {
+        this.blackHole.draw(0.8);
+      }
     } else if (this.gameOver) {
       this.blackHole.size = width / 2;
       this.blackHole.x = width / 2;
@@ -232,8 +258,9 @@ class Fairy {
 
   update(guide, blackHole) {
     this.isGuided(guide);
-    //TODO: reactivate
-    // this.isCaptured(blackHole)
+    if (state.opponent) {
+      this.isCaptured(blackHole)
+    }
     if (this.guided) {
       this.updateVelocity(guide);
     } else if (this.captured) {
@@ -364,7 +391,7 @@ class Fairy {
     if (distance <= blackHole.attractionRad && !this.saved) {
       this.captured = true;
       this.drag = 0.5;
-      // blackHole.capturedFairies++;
+      blackHole.capturedFairies++;
     } else {
       this.drag = 0.95
     }
@@ -451,9 +478,10 @@ class Guide {
     this.attractionRad = this.size * 5;
     this.recaptureChance = 0.6;
     this.minRad = this.size;
-    this.col = [49, 100, 76]  // HSL !!! COLOR !!!
+    this.col = [49, 100, 76]  // HSB col
+    this.displayCol = hsbToRgb(this.col)  // HSL !!! COLOR !!!
+    console.log(this.displayCol)
     this.gradient = this.setGradient(0.2)
-    // this.col = [49, 47, 100]  // old HSB value
   }
 
   move() {
@@ -474,7 +502,8 @@ class Guide {
       this.x, this.y, 0,   // inner rad
       this.x, this.y, this.attractionRad);  // outer rad
     // !!! THIS IS NOT HSB !!!
-    let colorString = "hsla(" + this.col[0] + ", " + this.col[1] + "%, " + this.col[2] + "%, "
+    // let colorString = "hsla(" + this.displayCol[0] + ", " + this.displayCol[1] + "%, " + this.displayCol[2] + "%, "
+    let colorString = "rgba(" + this.displayCol[0] + ", " + this.displayCol[1] + ", " + this.displayCol[2] + ", "
     myGradient.addColorStop(0, colorString + '1)');
     myGradient.addColorStop(midStop, colorString + '0.4)');
     // myGradient.addColorStop(0.8, colorString + '0.1)');
@@ -485,13 +514,15 @@ class Guide {
 
   draw(midStop = 0.2) {
     push()
+    colorMode(RGB)
     noStroke();
-    fill(this.col)
+    fill(this.displayCol)
     drawingContext.fillStyle = this.gradient;
-    drawingContext.strokeStyle = 'hsla(0, 100%, 50%, 1)';
+    // drawingContext.strokeStyle = 'hsla(0, 100%, 50%, 1)';
     circle(this.x, this.y, this.attractionRad)
     this.gradient = this.setGradient(midStop)
 
+    colorMode(HSB, 360, 100, 100, 1)
     noFill();
     stroke(255, 100, 100, 0.5)
     circle(this.x, this.y, this.attractionRad)
@@ -511,10 +542,38 @@ class BlackHole extends Guide {
     this.capturedFairies = 0;
     this.growFac = 10;
 
-    this.col = [150, 0, 0]
+    this.displayCol = [150, 0, 0]
   }
 
-  interact(guide) {
+  collideOasis(oasis) {
+    console.log("collide")
+    let dx = this.x - oasis.x;
+    let dy = this.y - oasis.y;
+    let distance = Math.sqrt(dx * dx + dy * dy);
+    let minDist = (oasis.size + this.attractionRad) / 2;
+
+    let nx = dx / distance;
+    let ny = dy / distance;
+
+    oasis.x -= nx * minDist;
+    oasis.y -= ny * minDist;
+    this.x += nx * minDist;
+    this.y += ny * minDist;
+
+    oasis.vx = -oasis.vx;
+    oasis.vy = -oasis.vy;
+    this.vx = -this.vx;
+    this.vy = -this.vy;
+
+  }
+
+  interactOasis(oasis) {
+    if (dist(this.x, this.y, oasis.x, oasis.y) <= this.attractionRad + oasis.size) {
+      this.collideOasis(oasis)
+    }
+  }
+
+  interactGuide(guide) {
     if (dist(this.x, this.y, guide.x, guide.y) <= this.attractionRad + guide.attractionRad &&
       guide.attractionRad >= guide.minRad) {
       guide.attractionRad -= this.shrinkGuide;
@@ -668,7 +727,6 @@ class Oasis {
   }
 
   draw() {
-    console.log(abs(this.vx) + abs(this.vy))
     push()
     noStroke()
     fill(this.col);
