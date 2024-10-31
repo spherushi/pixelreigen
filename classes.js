@@ -33,7 +33,7 @@ class Environment {
     // goal
     this.oasis = new Oasis(this.availableColors);
     this.timeInOasis = 0;  // s
-    this.timeToRelease = 2 * 60;  // s
+    this.timeToRelease = 1 * 60;  // s
 
     // state variables
     this.gameOver = false;
@@ -70,15 +70,13 @@ class Environment {
   }
 
   releaseFairies() {
-    // if fairies in oasis they'll be saved
-    // this.oasis.interact(this.guide, this.fairies)
-    // otherwise they just start their journey again
     for (let fairy of this.fairies) {
       if (fairy.guided) {
         fairy.release(this.guide);
       }
     }
   }
+
   fetchColors() {
     this.availableColors = [];
     for (let fairy of this.fairies) {
@@ -94,11 +92,13 @@ class Environment {
     this.blackHole.move();
     this.oasis.move();
     // blackhole may shrink guide radius:
-    this.blackHole.interact(this.guide);
-    this.blackHole.grow(this.capturedFairies);
-    if (this.capturedFairies <= 3) {
-      this.blackHole.follow(this.guide)
-    }
+
+    //TODO: reactivate opponent
+    // this.blackHole.interact(this.guide);
+    // this.blackHole.grow(this.capturedFairies);
+    // if (this.capturedFairies <= 3) {
+    // this.blackHole.follow(this.guide)
+    // }
     // oasis saves fairies after hover duration 
     if (this.guide.withinOasis(this.oasis)) {
       this.timeInOasis++;
@@ -112,7 +112,7 @@ class Environment {
     this.capturedFairies = 0;
     for (let fairy of this.fairies) {
       fairy.moveAll(this.dt, this.oasis);
-      fairy.update(this.guide, this.blackHole, this.oasis);
+      fairy.update(this.guide, this.blackHole)
       if (fairy.saved) {
         this.savedFairies++;
       } else if (fairy.captured) {
@@ -140,7 +140,7 @@ class Environment {
         fairy.draw();
       }
       this.guide.draw();
-      this.blackHole.draw(0.8);
+      // this.blackHole.draw(0.8);
     } else if (this.gameOver) {
       this.blackHole.size = width / 2;
       this.blackHole.x = width / 2;
@@ -185,19 +185,19 @@ class Fairy {
   constructor(guide) {
     // this.m = map(random(), 0, 1, 1, 5);  // can't have 0 mass!
     this.m = 1
-    this.rad = map(random(), 0, 1, guide.size + 1, guide.attractionRad)
-    this.ogRad = this.rad;
-    this.phase = random(TWO_PI)
     this.x = random(width);
     this.y = random(height);
     this.vMax = 10
     this.vx = random(this.vMax) - 1;
     this.vy = random(this.vMax) - 1;
+    // movement variables
     this.orbitalSpeed = 10;
     this.pullback = 90;
     this.drag = 0.95;
+    this.forceConst = 5;
 
-    this.size = 2;
+    // visual
+    this.size = 2.5;
     this.colorOptions = [
       [24, 31, 100],   // apricot
       [57, 45, 100],   // icterine
@@ -213,22 +213,27 @@ class Fairy {
     ]
     this.col = this.colorOptions[Math.floor(random(this.colorOptions.length))]
 
+    // state variables
     this.captured = false;
     this.guided = false;
     this.released = false;
+    // when saved
     this.saved = false;
-    this.danceTimer = new Timer(0);
+    this.rad = map(random(), 0, 1, guide.size + 1, guide.attractionRad)
+    this.ogRad = this.rad;
+    this.phase = random(TWO_PI)
     this.savedCenterX = 0;
     this.savedCenterY = 0;
-    this.forceConst = 5;
+    this.danceTimer = new Timer(0);
     this.angle = random(TWO_PI);
 
   }
 
 
-  update(guide, blackHole, oasis) {
+  update(guide, blackHole) {
     this.isGuided(guide);
-    this.isCaptured(blackHole)
+    //TODO: reactivate
+    // this.isCaptured(blackHole)
     if (this.guided) {
       this.updateVelocity(guide);
     } else if (this.captured) {
@@ -253,14 +258,10 @@ class Fairy {
     }
   }
 
-  updateVelocity(guide) {
-    const inertia = 0;
+  updateAccel(guide) {
     const damp_accel = 1;
     const damp_orbit = 1;
     const damp_rand = 1;
-    const min_speed = 0.01;
-    const max_speed = 50;
-
     // get distances and normal vectors
     const dx = guide.x - this.x;
     const dy = guide.y - this.y;
@@ -293,9 +294,18 @@ class Fairy {
     ax += this.orbitalSpeed * tangent_x * damp_orbit;
     ay += this.orbitalSpeed * tangent_y * damp_orbit;
 
+    return { ax: ax, ay: ay }
+  }
+
+  updateVelocity(guide) {
+    const inertia = 0;
+    const min_speed = 0.01;
+    const max_speed = 50;
+    let accel = this.updateAccel(guide)
+
     // apply acceleration to velocities
-    this.vx = this.vx * inertia + ax * (1 - inertia);
-    this.vy = this.vy * inertia + ay * (1 - inertia);
+    this.vx = this.vx * inertia + accel.ax * (1 - inertia);
+    this.vy = this.vy * inertia + accel.ay * (1 - inertia);
 
     // add drag??
     this.vx *= this.drag;
@@ -376,6 +386,18 @@ class Fairy {
     } else if (distance > guide.attractionRad * 2) {
       this.released = false;
     }
+  }
+
+  isSaved(guide) {
+    this.x = guide.x + guide.size;
+    this.y = guide.y + guide.size;
+    this.savedCenterX = guide.x;
+    this.savedCenterY = guide.y;
+    this.rad = guide.size
+    this.ogRad = this.rad;
+    this.saved = true;
+    this.guided = false;
+    this.danceTimer = new Timer(8);
   }
 
   release(guide) {
@@ -542,27 +564,36 @@ class Oasis {
   constructor(colors) {
     this.minSize = 15;
     this.maxSize = 50;
-    this.size = map(random(), 0, 1, this.minSize, this.maxSize)
+    this.sizeIncrement = 1;
+    // this.size = map(random(), 0, 1, this.minSize, this.maxSize)
+    this.size = this.minSize;
     this.x = random(this.size, width - this.size);
     this.y = random(height);
-    this.vMax = 3;
+    this.vMin = 1;
+    this.vMax = 2;
+    this.absoluteVMax = 7;
     this.vx = random(this.vMax * 2) - this.vMax;
-    this.vy = random(this.vMax * 2) - this.vMax;
+    this.vy = random((this.vMax - this.vx) * 2) - (this.vMax - this.vx);
     this.fairyCapacity = map(random(), 0, 1, 5, 10)
     this.currentlySaved = 0;
     this.colOptions = colors;
     this.bounces = 0;
-    this.bounceMax = 20;
+    this.bounceMax = 15;
     this.setColor();
   }
 
+  increaseSize() {
+    this.size += this.sizeIncrement;
+  }
+
   reset() {
-    this.size = map(random(), 0, 1, this.minSize, this.maxSize);
-    // this.x = random(this.size, width - this.size);
-    // this.y = random(this.size, height - this.size);
+    this.increaseSize();
+    this.vMax = Math.min(this.vMax++, this.absoluteVMax);
+    this.x = random(this.size, width - this.size);
+    this.y = random(this.size, height - this.size);
     this.vx = random(this.vMax * 2) - this.vMax;
-    this.vy = random(this.vMax * 2) - this.vMax;
-    this.fairyCapacity = map(random(), 0, 1, 5, 10)
+    this.vy = random((this.vMax - this.vx) * 2) - (this.vMax - this.vx);
+    this.fairyCapacity = map(random(), 0, 1, 1, 10)
     this.currentlySaved = 0;
     this.bounces = 0;
     this.setColor();
@@ -572,26 +603,17 @@ class Oasis {
     return this.currentlySaved >= this.fairyCapacity;
   }
 
-  saveFairy(fairy) {
-    fairy.x = this.x + this.size;
-    fairy.y = this.y + this.size;
-    fairy.savedCenterX = this.x;
-    fairy.savedCenterY = this.y;
-    fairy.rad = this.size
-    fairy.ogRad = fairy.rad;
-    fairy.saved = true;
-    fairy.guided = false;
-    fairy.danceTimer = new Timer(8);
-  }
-
   setColor() {
-    this.col = this.colOptions[Math.floor(random(this.colOptions.length))]
+    this.col = [0, 100, 100]
+    if (this.colOptions.length > 0) {
+      this.col = this.colOptions[Math.floor(random(this.colOptions.length))]
+    }
   }
 
   bounceOffWalls() {
     if (this.x + this.size >= width) {
       this.x = width - this.size;
-      this.vx *= -1 * (random() + 0.5);
+      this.vx *= (-1 * (random() + 0.5));
       this.setColor();
       this.bounces++;
     } else if (this.x - this.size <= 0) {
@@ -611,8 +633,14 @@ class Oasis {
       this.setColor();
       this.bounces++;
     }
-    if (this.bounces > this.bounceMax) {
-      this.reset();
+    // ensure speed is managable
+    if (abs(this.vx) < this.vMin) {
+      this.vx = this.vMin;
+    } else if (abs(this.vy) < this.vMin) {
+      this.vy = this.vMin;
+    }
+    if (abs(this.vx) + abs(this.vy) > this.absoluteVMax) {
+      this.vx = this.absoluteVMax - abs(this.vy);
     }
   }
 
@@ -625,10 +653,14 @@ class Oasis {
   interact(guide, fairies, canBeSaved) {
     if (guide.withinOasis(this)) {
       for (let fairy of fairies) {
-        if (fairy.col[0] == this.col[0] && fairy.guided && canBeSaved) {
-          this.saveFairy(fairy);
+        if (fairy.col[0] == this.col[0] &&
+          fairy.guided &&
+          canBeSaved &&
+          !this.isFull()) {
+          fairy.isSaved(this);
           this.currentlySaved++;
-        } else {
+          this.increaseSize();
+        } else if (fairy.col[0] != this.col[0]) {
           fairy.collideOasis(this)
         }
       }
@@ -636,6 +668,7 @@ class Oasis {
   }
 
   draw() {
+    console.log(abs(this.vx) + abs(this.vy))
     push()
     noStroke()
     fill(this.col);
