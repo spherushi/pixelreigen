@@ -1,5 +1,6 @@
 const state = {
-  opponent: false
+  opponent: false,
+  availableColors: []
 }
 
 function hsbToRgb(hsb) {
@@ -40,16 +41,19 @@ class Environment {
     // player & opponent
     this.guide = new Guide();
     this.blackHole = new BlackHole();
-    this.availableColors = [];
+    state.availableColors = [];
     for (let i = 0; i < this.nFairies; i++) {
       let fairy = new Fairy(this.guide);
       if (this.colorAvailable(fairy)) {
-        this.availableColors.push(fairy.col)
+        state.availableColors.push(fairy.col)
       }
       this.fairies.push(fairy);
     }
+    this.guide.updateCol();
     // goal
-    this.oasis = new Oasis(this.availableColors);
+    this.oasis = new Oasis(state.availableColors);
+    this.oasis.col = this.guide.col;
+    this.oasis.updateCapacity(this.fairies);
     this.timeInOasis = 0;  // s
     this.timeToRelease = 1 * 60;  // s
 
@@ -68,15 +72,18 @@ class Environment {
     this.spawnTimer = new Timer(this.fairySpawnTime);
     this.guide = new Guide();
     this.blackHole = new BlackHole();
-    this.availableColors = [];
+    state.availableColors = [];
     for (let i = 0; i < this.nFairies; i++) {
       let fairy = new Fairy(this.guide);
       if (this.colorAvailable(fairy)) {
-        this.availableColors.push(fairy.col)
+        state.availableColors.push(fairy.col)
       }
       this.fairies.push(fairy);
     }
+    this.guide.updateCol();
     this.oasis = new Oasis(this.availableColors);
+    this.oasis.col = this.guide.col;
+    this.oasis.updateCapacity(this.fairies);
     // reset state
     this.gameOver = false;
     this.won = false;
@@ -97,10 +104,10 @@ class Environment {
   }
 
   fetchColors() {
-    this.availableColors = [];
+    state.availableColors = [];
     for (let fairy of this.fairies) {
       if (!fairy.saved && this.colorAvailable(fairy)) {
-        this.availableColors.push(fairy.col)
+        state.availableColors.push(fairy.col)
       }
     }
   }
@@ -141,13 +148,16 @@ class Environment {
     }
     if (this.oasis.isFull()) {
       this.oasis.reset();
+      this.guide.updateCol();
+      this.oasis.col = this.guide.col;
+      this.oasis.updateCapacity(this.fairies);
     }
-    if (this.spawnTimer.isOver()) {
-      this.fairies.push(new Fairy(this.guide))
-      this.spawnTimer = new Timer(this.fairySpawnTime)
-    }
+    // if (this.spawnTimer.isOver()) {
+    //   this.fairies.push(new Fairy(this.guide))
+    //   this.spawnTimer = new Timer(this.fairySpawnTime)
+    // }
     this.fetchColors();
-    this.oasis.colOptions = this.availableColors
+    this.oasis.colOptions = state.availableColors
     // How to LOSE?
     if (this.guide.attractionRad <= this.guide.minRad) {
       this.gameOver = true;
@@ -193,7 +203,7 @@ class Environment {
   // helper functions
   colorAvailable(fairy) {
     let available = true;
-    for (let col of this.availableColors) {
+    for (let col of state.availableColors) {
       if (col[0] == fairy.col[0] &&
         col[1] == fairy.col[1] &&
         col[2] == fairy.col[2]
@@ -401,7 +411,8 @@ class Fairy {
     let distance = dist(this.x, this.y, guide.x, guide.y)
     if (distance <= guide.attractionRad &&
       !this.released &&
-      !this.saved) {
+      !this.saved &&
+      this.col[0] == guide.col[0]) {
       if (this.captured) {
         this.guided = random() <= guide.recaptureChance ? true : false;
         if (this.guided) {
@@ -480,8 +491,14 @@ class Guide {
     this.minRad = this.size;
     this.col = [49, 100, 76]  // HSB col
     this.displayCol = hsbToRgb(this.col)  // HSL !!! COLOR !!!
-    console.log(this.displayCol)
     this.gradient = this.setGradient(0.2)
+  }
+
+  updateCol() {
+    if (state.availableColors.length > 0) {
+      this.col = state.availableColors[Math.floor(random(state.availableColors.length))]
+      this.displayCol = hsbToRgb(this.col)  // HSL !!! COLOR !!!
+    }
   }
 
   move() {
@@ -638,6 +655,7 @@ class Oasis {
     this.colOptions = colors;
     this.bounces = 0;
     this.bounceMax = 15;
+    this.col = [0, 100, 100]
     this.setColor();
   }
 
@@ -658,12 +676,21 @@ class Oasis {
     this.setColor();
   }
 
+  updateCapacity(fairies) {
+    let ctr = 0;
+    for (let fairy of fairies) {
+      if (!fairy.saved && fairy.col[0] == this.col[0]) {
+        ctr++;
+      }
+    }
+    this.fairyCapacity = ctr;
+  }
+
   isFull() {
     return this.currentlySaved >= this.fairyCapacity;
   }
 
   setColor() {
-    this.col = [0, 100, 100]
     if (this.colOptions.length > 0) {
       this.col = this.colOptions[Math.floor(random(this.colOptions.length))]
     }
@@ -673,23 +700,23 @@ class Oasis {
     if (this.x + this.size >= width) {
       this.x = width - this.size;
       this.vx *= (-1 * (random() + 0.5));
-      this.setColor();
+      // this.setColor();
       this.bounces++;
     } else if (this.x - this.size <= 0) {
       this.x = this.size;
       this.vx *= -1 * (random() + 0.5);
-      this.setColor();
+      // this.setColor();
       this.bounces++;
     }
     if (this.y + this.size >= height) {
       this.y = height - this.size;
       this.vy *= -1 * (random() + 0.5);
-      this.setColor();
+      // this.setColor();
       this.bounces++;
     } else if (this.y - this.size <= 0) {
       this.y = this.size;
       this.vy *= -1 * (random() + 0.5);
-      this.setColor();
+      // this.setColor();
       this.bounces++;
     }
     // ensure speed is managable
