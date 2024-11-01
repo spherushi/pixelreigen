@@ -1,9 +1,14 @@
 const state = {
-  opponent: false,
-  availableColors: []
+  opponent: true,
+  gameOver: true,
+  won: false,
+  // colors:
+  availableColors: [],
+  current_col: []
 }
 
 function hsbToRgb(hsb) {
+  // needed to achieve transparency gradient
   let col = color(`hsba(${hsb[0]}, ${hsb[1]}%, ${hsb[2]}%, 1)`)
   push()
   colorMode(RGB);
@@ -38,10 +43,21 @@ class Environment {
     this.fairies = [];
     this.fairySpawnTime = 10;  // s
     this.spawnTimer = new Timer(this.fairySpawnTime);
-    // player & opponent
+    // player & opponent & PIXLIES <3
     this.guide = new Guide();
     this.blackHole = new BlackHole();
     state.availableColors = [];
+    this.initialiseFairies();
+    this.guide.updateCol();
+    // goal
+    this.oasis = new Oasis(state.current_col, this.fairies);
+    this.timeInOasis = 0;  // s
+    this.timeToRelease = 1 * 60;  // s
+    // animation parameters
+    this.dt = 0.1
+  }
+
+  initialiseFairies() {
     for (let i = 0; i < this.nFairies; i++) {
       let fairy = new Fairy(this.guide);
       if (this.colorAvailable(fairy)) {
@@ -49,23 +65,11 @@ class Environment {
       }
       this.fairies.push(fairy);
     }
-    this.guide.updateCol();
-    // goal
-    this.oasis = new Oasis(state.availableColors);
-    this.oasis.col = this.guide.col;
-    this.oasis.updateCapacity(this.fairies);
-    this.timeInOasis = 0;  // s
-    this.timeToRelease = 1 * 60;  // s
-
-    // state variables
-    this.gameOver = false;
-    this.won = false;
-    // game parameters
-    this.dt = 0.1
   }
 
   reset() {
     // reset elements
+    this.nFairies = 20;
     this.fairies = [];
     this.savedFairies = 0;
     this.capturedFairies = 0;
@@ -73,26 +77,18 @@ class Environment {
     this.guide = new Guide();
     this.blackHole = new BlackHole();
     state.availableColors = [];
-    for (let i = 0; i < this.nFairies; i++) {
-      let fairy = new Fairy(this.guide);
-      if (this.colorAvailable(fairy)) {
-        state.availableColors.push(fairy.col)
-      }
-      this.fairies.push(fairy);
-    }
+    this.initialiseFairies();
     this.guide.updateCol();
-    this.oasis = new Oasis(this.availableColors);
-    this.oasis.col = this.guide.col;
-    this.oasis.updateCapacity(this.fairies);
+    this.oasis = new Oasis(state.current_col, this.fairies);
     // reset state
-    this.gameOver = false;
-    this.won = false;
+    state.gameOver = false;
+    state.won = false;
   }
 
-  addFairies(nFairies) {
-    for (let i = 0; i < nFairies; i++) {
-      this.fairies.push(new Fairy(this.guide))
-    }
+  addFairy() {
+    this.fairies.push(new Fairy(this.guide))
+    this.nFairies++;
+    this.fetchColors();
   }
 
   releaseFairies() {
@@ -127,48 +123,49 @@ class Environment {
       }
     }
     // oasis saves fairies after hover duration 
-    if (this.guide.withinOasis(this.oasis)) {
-      this.timeInOasis++;
+    if (this.guide.withinOasis(this.oasis) && !state.won) {
       let canBeSaved = this.timeInOasis > this.timeToRelease
       this.oasis.interact(this.guide, this.fairies, canBeSaved)
+      this.timeInOasis++;
     } else {
       this.timeInOasis = 0;
     }
-    // this.oasis.interact(this.guide, this.fairies)
+    // update fairies
     this.savedFairies = 0;
     this.capturedFairies = 0;
     for (let fairy of this.fairies) {
-      fairy.moveAll(this.dt, this.oasis);
-      fairy.update(this.guide, this.blackHole)
+      fairy.update(this.guide, this.blackHole, this.dt, this.oasis)
       if (fairy.saved) {
         this.savedFairies++;
+        this.fetchColors();
       } else if (fairy.captured && state.opponent) {
         this.capturedFairies++;
       }
     }
-    if (this.oasis.isFull()) {
+    if (!state.won && this.oasis.isFull()) {
+      // console.log("full: " + this.oasis.isFull() + ", won: " + state.won)
       this.oasis.reset();
       this.guide.updateCol();
       this.oasis.col = this.guide.col;
       this.oasis.updateCapacity(this.fairies);
     }
-    // if (this.spawnTimer.isOver()) {
-    //   this.fairies.push(new Fairy(this.guide))
-    //   this.spawnTimer = new Timer(this.fairySpawnTime)
-    // }
-    this.fetchColors();
-    this.oasis.colOptions = state.availableColors
     // How to LOSE?
-    if (this.guide.attractionRad <= this.guide.minRad) {
-      this.gameOver = true;
+    if (!state.won && this.guide.attractionRad <= this.guide.minRad) {
+      state.gameOver = true;
     }
-    if (this.savedFairies == this.nFairies) {
-      this.won = true;
+    if (this.savedFairies == this.fairies.length) {
+      state.won = true;
+    }
+    if (!state.gameOver && !state.won &&
+      this.spawnTimer.isOver()) {
+      this.addFairy();
+      this.spawnTimer = new Timer(this.fairySpawnTime)
     }
   }
+
   draw() {
     background(this.skyCol);
-    if (!this.gameOver && !this.won) {
+    if (!state.gameOver && !state.won) {
       this.oasis.draw();
       for (let fairy of this.fairies) {
         fairy.draw();
@@ -177,26 +174,50 @@ class Environment {
       if (state.opponent) {
         this.blackHole.draw(0.8);
       }
-    } else if (this.gameOver) {
-      this.blackHole.size = width / 2;
+    } else if (state.gameOver) {
+      let bgCol = [this.skyCol[0], this.skyCol[1], 12]
+      background(bgCol)
+      this.blackHole.attractionRad = width / 2;
       this.blackHole.x = width / 2;
       this.blackHole.y = height / 2;
-      this.blackHole.draw();
-      stroke(255)
-      textSize(40)
-      let ts = textWidth("GAME OVER")
-      text("GAME OVER", width / 2 - ts / 2, height / 2)
+      // this.blackHole.displayCol = hsbToRgb([240, 10, 40])
+      this.blackHole.draw(0.8);
       for (let fairy of this.fairies) {
         fairy.col[1] = 10;
         fairy.col[2] = 10;
+        fairy.captured = true;
+        fairy.saved = false;
+        fairy.guided = false;
+        fairy.draw();
       }
+      push()
+      fill([240, 12, 12])
+      textSize(40)
+      textFont(gameOverFont);
+      // let ts1 = "only the void"
+      let ts1 = "ONLY THE VOID"
+      let ts1_w = textWidth(ts1)
+      let ts2 = "REMAINS"
+      let ts2_w = textWidth(ts2)
+      text(ts1, width / 2 - ts1_w / 2, height / 2)
+      text(ts2, width / 2 - ts2_w / 2, height / 2 + 40)
+      // text("GAME OVER", width / 2 - ts / 2, height / 2)
+      pop()
     } else {
       // won
-      stroke(255)
-      textSize(40)
+      push()
+      // stroke(this.guide.col);
+      fill(this.guide.col)
+      textSize(40);
       let ts = textWidth("All pixlies are safe!")
       text("All pixlies are safe!", width / 2 - ts / 2, height / 2)
-
+      pop()
+      this.oasis.draw();
+      for (let fairy of this.fairies) {
+        fairy.saved = true;
+        fairy.danceTimer = new Timer(100);
+        fairy.draw();
+      }
     }
   }
 
@@ -248,11 +269,13 @@ class Fairy {
       [0, 27, 100]     // melon
     ]
     this.col = this.colorOptions[Math.floor(random(this.colorOptions.length))]
+    this.displayCol = [this.col[0], 40, 50];
 
     // state variables
     this.captured = false;
     this.guided = false;
     this.released = false;
+    this.waveToGuide = false;
     // when saved
     this.saved = false;
     this.rad = map(random(), 0, 1, guide.size + 1, guide.attractionRad)
@@ -262,12 +285,15 @@ class Fairy {
     this.savedCenterY = 0;
     this.danceTimer = new Timer(0);
     this.angle = random(TWO_PI);
+    this.rotDir = random() <= 0.5 ? 1 : -1;
 
   }
 
 
-  update(guide, blackHole) {
+  update(guide, blackHole, dt, oasis) {
+    this.moveAll(dt, oasis);
     this.isGuided(guide);
+    this.isCloseToGuide(guide);
     if (state.opponent) {
       this.isCaptured(blackHole)
     }
@@ -288,7 +314,7 @@ class Fairy {
 
   updateVelocityFree() {
     if (this.saved) {
-      this.angle += TWO_PI / 100;
+      this.angle += TWO_PI / 100 * this.rotDir;
     } else {
       this.vx = random(this.vMax) * (random() <= 0.5 ? -1 : 1);
       this.vy = random(this.vMax) * (random() <= 0.5 ? 1 : -1);
@@ -400,6 +426,7 @@ class Fairy {
     let distance = dist(this.x, this.y, blackHole.x, blackHole.y)
     if (distance <= blackHole.attractionRad && !this.saved) {
       this.captured = true;
+      this.displayCol = [this.col[0], 10, 30]
       this.drag = 0.5;
       blackHole.capturedFairies++;
     } else {
@@ -426,6 +453,20 @@ class Fairy {
     }
   }
 
+  isCloseToGuide(guide) {
+    let distance = dist(guide.x, guide.y, this.x, this.y)
+    if (distance <= guide.attractionRad * 4 &&
+      this.col[0] == guide.col[0] &&
+      !this.guided &&
+      !this.saved &&
+      !this.captured) {
+      this.waveToGuide = true;
+    } else {
+      this.waveToGuide = false;
+    }
+  }
+
+
   isSaved(guide) {
     this.x = guide.x + guide.size;
     this.y = guide.y + guide.size;
@@ -434,6 +475,7 @@ class Fairy {
     this.rad = guide.size
     this.ogRad = this.rad;
     this.saved = true;
+    this.displayCol = [...this.col];
     this.guided = false;
     this.danceTimer = new Timer(8);
   }
@@ -451,28 +493,25 @@ class Fairy {
     this.x = guide.x
     this.y = guide.y
   }
+
+  shine() {
+    push()
+    fill([...this.displayCol, 0.05])
+    circle(this.x, this.y, this.size * 5)
+    fill([...this.displayCol, 0.1])
+    circle(this.x, this.y, this.size * 4)
+    fill([...this.displayCol, 0.3])
+    circle(this.x, this.y, this.size * 2)
+    pop()
+  }
+
   draw() {
-    let drawCol = [...this.col]
-    if (!this.saved) {
-      drawCol[1] = 40;
-      drawCol[2] = 50;
-    }
-    if (this.captured) {
-      drawCol[1] = 10;
-      drawCol[2] = 30;
-    }
     push()
     noStroke()
-    fill(drawCol)
-    if (this.saved && !this.danceTimer.isOver()) {
-      push()
-      fill([...drawCol, 0.05])
-      circle(this.x, this.y, this.size * 5)
-      fill([...drawCol, 0.1])
-      circle(this.x, this.y, this.size * 4)
-      fill([...drawCol, 0.3])
-      circle(this.x, this.y, this.size * 2)
-      pop()
+    fill(this.displayCol)
+    if (this.saved && !this.danceTimer.isOver() ||
+      this.waveToGuide) {
+      this.shine()
     } else {
       circle(this.x, this.y, this.size)
     }
@@ -498,6 +537,7 @@ class Guide {
     if (state.availableColors.length > 0) {
       this.col = state.availableColors[Math.floor(random(state.availableColors.length))]
       this.displayCol = hsbToRgb(this.col)  // HSL !!! COLOR !!!
+      state.current_col = this.col;
     }
   }
 
@@ -538,12 +578,12 @@ class Guide {
     // drawingContext.strokeStyle = 'hsla(0, 100%, 50%, 1)';
     circle(this.x, this.y, this.attractionRad)
     this.gradient = this.setGradient(midStop)
-
     colorMode(HSB, 360, 100, 100, 1)
-    noFill();
-    stroke(255, 100, 100, 0.5)
-    circle(this.x, this.y, this.attractionRad)
-    pop()
+
+    // noFill();
+    // // stroke(255, 100, 100, 0.5)
+    // circle(this.x, this.y, this.attractionRad)
+    // pop()
   }
 }
 
@@ -559,11 +599,11 @@ class BlackHole extends Guide {
     this.capturedFairies = 0;
     this.growFac = 10;
 
-    this.displayCol = [150, 0, 0]
+    this.col = [150, 0, 0];
+    this.displayCol = hsbToRgb(this.col);
   }
 
   collideOasis(oasis) {
-    console.log("collide")
     let dx = this.x - oasis.x;
     let dy = this.y - oasis.y;
     let distance = Math.sqrt(dx * dx + dy * dy);
@@ -637,11 +677,10 @@ class BlackHole extends Guide {
 }
 
 class Oasis {
-  constructor(colors) {
+  constructor(color, fairies) {
     this.minSize = 15;
     this.maxSize = 50;
     this.sizeIncrement = 1;
-    // this.size = map(random(), 0, 1, this.minSize, this.maxSize)
     this.size = this.minSize;
     this.x = random(this.size, width - this.size);
     this.y = random(height);
@@ -650,13 +689,12 @@ class Oasis {
     this.absoluteVMax = 7;
     this.vx = random(this.vMax * 2) - this.vMax;
     this.vy = random((this.vMax - this.vx) * 2) - (this.vMax - this.vx);
-    this.fairyCapacity = map(random(), 0, 1, 5, 10)
+    this.col = color;
+    this.fairyCapacity = 0;
+    this.updateCapacity(fairies);
     this.currentlySaved = 0;
-    this.colOptions = colors;
     this.bounces = 0;
     this.bounceMax = 15;
-    this.col = [0, 100, 100]
-    this.setColor();
   }
 
   increaseSize() {
@@ -664,16 +702,16 @@ class Oasis {
   }
 
   reset() {
+    console.log("reset oasis")
     this.increaseSize();
     this.vMax = Math.min(this.vMax++, this.absoluteVMax);
     this.x = random(this.size, width - this.size);
     this.y = random(this.size, height - this.size);
     this.vx = random(this.vMax * 2) - this.vMax;
     this.vy = random((this.vMax - this.vx) * 2) - (this.vMax - this.vx);
-    this.fairyCapacity = map(random(), 0, 1, 1, 10)
+    this.fairyCapacity = map(random(), 0, 1, 2, 10)
     this.currentlySaved = 0;
     this.bounces = 0;
-    this.setColor();
   }
 
   updateCapacity(fairies) {
@@ -687,6 +725,9 @@ class Oasis {
   }
 
   isFull() {
+    if (this.currentlySaved >= this.fairyCapacity) {
+      console.log("is full! " + this.fairyCapacity)
+    }
     return this.currentlySaved >= this.fairyCapacity;
   }
 

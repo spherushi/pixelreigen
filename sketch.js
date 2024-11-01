@@ -1,13 +1,24 @@
 let environ;
-let n = 50;
+let n = 15;
+let font;
+let gameOverFont;
+
+function preload() {
+  font = loadFont('/assets/Selima.ttf');
+  gameOverFont = loadFont('/assets/HyperScript.ttf');
+}
 
 function mouseClicked() {
   environ.releaseFairies();
-  // environ.addFairies(5);
+  if (state.won || state.gameOver) {
+    environ.reset();
+  }
 }
+
 
 function setup() {
   // colorMode(HSB);
+  textFont(font);
   colorMode(HSB, 360, 100, 100, 1)
   ellipseMode(RADIUS);
   rectMode(RADIUS);
