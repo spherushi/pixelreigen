@@ -1,6 +1,6 @@
 const state = {
   opponent: true,
-  gameOver: true,
+  gameOver: false,
   won: false,
   // colors:
   availableColors: [],
@@ -112,7 +112,7 @@ class Environment {
     // move elements
     this.guide.move()
     this.oasis.move();
-    if (state.opponent) {
+    if (state.opponent && !state.won) {
       this.blackHole.move();
       // blackhole may shrink guide radius:
       this.blackHole.interactGuide(this.guide);
@@ -143,7 +143,6 @@ class Environment {
       }
     }
     if (!state.won && this.oasis.isFull()) {
-      // console.log("full: " + this.oasis.isFull() + ", won: " + state.won)
       this.oasis.reset();
       this.guide.updateCol();
       this.oasis.col = this.guide.col;
@@ -251,7 +250,6 @@ class Fairy {
     this.orbitalSpeed = 10;
     this.pullback = 90;
     this.drag = 0.95;
-    this.forceConst = 5;
 
     // visual
     this.size = 2.5;
@@ -288,7 +286,6 @@ class Fairy {
     this.rotDir = random() <= 0.5 ? 1 : -1;
 
   }
-
 
   update(guide, blackHole, dt, oasis) {
     this.moveAll(dt, oasis);
@@ -347,7 +344,6 @@ class Fairy {
       ay += pullbackStrength * normal_y;
     }
     // add random movement if at edge of radius
-    // else if (round(distance) == round(R)) {
     const randForce = random(30) * damp_rand;
     ax += normal_x * randForce * (random() <= 0.5 ? -1 : 1);
     ay += normal_y * randForce * (random() <= 0.5 ? -1 : 1);
@@ -386,9 +382,22 @@ class Fairy {
     }
   }
 
+  clipWalls() {
+    if (this.x - this.size <= 0) {
+      this.x = this.size;
+    } else if (this.x + this.size >= width) {
+      this.x = width - this.size;
+    } if (this.y - this.size <= 0) {
+      this.y = this.size;
+    } else if (this.y + this.size >= height) {
+      this.y = height - this.size;
+    }
+  }
+
   moveAll(dt, oasis) {
     this.move(dt)
     this.moveSaved(oasis)
+    this.clipWalls();
   }
 
   move(dt) {
@@ -541,9 +550,22 @@ class Guide {
     }
   }
 
+  clipWalls() {
+    if (this.x - this.size <= 0) {
+      this.x = this.size;
+    } else if (this.x + this.size >= width) {
+      this.x = width - this.size;
+    } if (this.y - this.size <= 0) {
+      this.y = this.size;
+    } else if (this.y + this.size >= height) {
+      this.y = height - this.size;
+    }
+  }
+
   move() {
     this.x = mouseX;
     this.y = mouseY;
+    this.clipWalls();
   }
 
   withinOasis(oasis) {
@@ -575,15 +597,9 @@ class Guide {
     noStroke();
     fill(this.displayCol)
     drawingContext.fillStyle = this.gradient;
-    // drawingContext.strokeStyle = 'hsla(0, 100%, 50%, 1)';
     circle(this.x, this.y, this.attractionRad)
     this.gradient = this.setGradient(midStop)
     colorMode(HSB, 360, 100, 100, 1)
-
-    // noFill();
-    // // stroke(255, 100, 100, 0.5)
-    // circle(this.x, this.y, this.attractionRad)
-    // pop()
   }
 }
 
@@ -597,6 +613,7 @@ class BlackHole extends Guide {
     this.v = random(this.vMax);
     this.shrinkGuide = 0.1;
     this.capturedFairies = 0;
+    this.m = 1;
     this.growFac = 10;
 
     this.col = [150, 0, 0];
@@ -607,21 +624,20 @@ class BlackHole extends Guide {
     let dx = this.x - oasis.x;
     let dy = this.y - oasis.y;
     let distance = Math.sqrt(dx * dx + dy * dy);
-    let minDist = (oasis.size + this.attractionRad) / 2;
+    let minDist = (oasis.size + this.attractionRad) / 3;
 
     let nx = dx / distance;
     let ny = dy / distance;
 
-    oasis.x -= nx * minDist;
-    oasis.y -= ny * minDist;
-    this.x += nx * minDist;
-    this.y += ny * minDist;
+    oasis.x -= nx * minDist * this.m / oasis.m;
+    oasis.y -= ny * minDist * this.m / oasis.m;
+    this.x += nx * minDist * oasis.m / this.m;
+    this.y += ny * minDist * oasis.m / this.m;
 
     oasis.vx = -oasis.vx;
     oasis.vy = -oasis.vy;
     this.vx = -this.vx;
     this.vy = -this.vy;
-
   }
 
   interactOasis(oasis) {
@@ -653,25 +669,13 @@ class BlackHole extends Guide {
   grow(capturedFairies) {
     this.size = Math.min(this.initialSize + capturedFairies * this.growFac, width / 3);
     this.attractionRad = this.size;
-  }
-
-  bounceOffWalls() {
-    if (this.x + this.size >= width) {
-      this.x = width - this.size;
-    } else if (this.x - this.size <= 0) {
-      this.x = this.size;
-    }
-    if (this.y + this.size >= height) {
-      this.y = height - this.size;
-    } else if (this.y - this.size <= 0) {
-      this.y = this.size;
-    }
+    this.m = Math.max(1, capturedFairies);
   }
 
   move() {
     this.x += map(random(), 0, 1, -this.vMax, this.vMax)
     this.y += map(random(), 0, 1, -this.vMax, this.vMax)
-    this.bounceOffWalls();
+    this.clipWalls();
   }
 
 }
@@ -684,9 +688,10 @@ class Oasis {
     this.size = this.minSize;
     this.x = random(this.size, width - this.size);
     this.y = random(height);
+    this.m = 1;
     this.vMin = 1;
     this.vMax = 2;
-    this.absoluteVMax = 7;
+    this.absoluteVMax = 6;
     this.vx = random(this.vMax * 2) - this.vMax;
     this.vy = random((this.vMax - this.vx) * 2) - (this.vMax - this.vx);
     this.col = color;
@@ -699,10 +704,10 @@ class Oasis {
 
   increaseSize() {
     this.size += this.sizeIncrement;
+    this.m = Math.max(1, this.currentlySaved);
   }
 
   reset() {
-    console.log("reset oasis")
     this.increaseSize();
     this.vMax = Math.min(this.vMax++, this.absoluteVMax);
     this.x = random(this.size, width - this.size);
@@ -726,7 +731,6 @@ class Oasis {
 
   isFull() {
     if (this.currentlySaved >= this.fairyCapacity) {
-      console.log("is full! " + this.fairyCapacity)
     }
     return this.currentlySaved >= this.fairyCapacity;
   }
