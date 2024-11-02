@@ -131,7 +131,6 @@ class Environment {
       this.oasis.indicateTransfer = false;
       this.timeInOasis = 0;
     }
-    console.log(this.oasis.indicateTransfer)
     // update fairies
     this.savedFairies = 0;
     this.capturedFairies = 0;
@@ -563,7 +562,12 @@ class Oasis {
         this.size, this.size, this.size, this.size)
     }
     fill(this.col);
-    rect(this.x, this.y, this.size)
+    if (!state.won) {
+      rect(this.x, this.y, this.size, this.size,
+        this.size / 2, this.size / 2, this.size / 2, this.size / 2)
+    } else {
+      rect(this.x, this.y, this.size)
+    }
     pop()
   }
 }
