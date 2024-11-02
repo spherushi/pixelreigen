@@ -612,6 +612,7 @@ class BlackHole extends Guide {
     this.initialSize = this.size;
     this.v = random(this.vMax);
     this.shrinkGuide = 0.1;
+    this.suckedLight = 0;
     this.capturedFairies = 0;
     this.m = 1;
     this.growFac = 10;
@@ -650,6 +651,7 @@ class BlackHole extends Guide {
     if (dist(this.x, this.y, guide.x, guide.y) <= this.attractionRad + guide.attractionRad &&
       guide.attractionRad >= guide.minRad) {
       guide.attractionRad -= this.shrinkGuide;
+      this.suckedLight += this.shrinkGuide;
     }
   }
 
@@ -668,7 +670,7 @@ class BlackHole extends Guide {
 
   grow(capturedFairies) {
     this.size = Math.min(this.initialSize + capturedFairies * this.growFac, width / 3);
-    this.attractionRad = this.size;
+    this.attractionRad = this.size + this.suckedLight;
     this.m = Math.max(1, capturedFairies);
   }
 
