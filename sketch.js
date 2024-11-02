@@ -1,5 +1,5 @@
 let environ;
-let n = 15;
+let n = 3;
 let font;
 let gameOverFont;
 
