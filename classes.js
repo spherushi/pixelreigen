@@ -69,7 +69,7 @@ class Environment {
 
   reset() {
     // reset elements
-    this.nFairies = 20;
+    this.nFairies = 3;
     this.fairies = [];
     this.savedFairies = 0;
     this.capturedFairies = 0;
@@ -128,8 +128,10 @@ class Environment {
       this.oasis.interact(this.guide, this.fairies, canBeSaved)
       this.timeInOasis++;
     } else {
+      this.oasis.indicateTransfer = false;
       this.timeInOasis = 0;
     }
+    console.log(this.oasis.indicateTransfer)
     // update fairies
     this.savedFairies = 0;
     this.capturedFairies = 0;
@@ -162,9 +164,6 @@ class Environment {
       state.won = true;
       // use blackHole col to update text:
       this.blackHole.col = [...this.guide.col]
-      // for (let fairy of this.fairies) {
-      //   fairy.displayCol = fairy.col;
-      // }
     }
     if (state.won) {
       this.oasis.expand();
@@ -180,6 +179,7 @@ class Environment {
   draw() {
     background(this.skyCol);
     if (!state.gameOver && !state.won) {
+      this.oasis.draw();
       for (let fairy of this.fairies) {
         fairy.draw();
       }
@@ -187,14 +187,12 @@ class Environment {
       if (state.opponent) {
         this.blackHole.draw(0.8);
       }
-      this.oasis.draw();
     } else if (state.gameOver) {
       let bgCol = [this.skyCol[0], this.skyCol[1], 12]
       background(bgCol)
       this.blackHole.attractionRad = width / 2;
       this.blackHole.x = width / 2;
       this.blackHole.y = height / 2;
-      // this.blackHole.displayCol = hsbToRgb([240, 10, 40])
       this.blackHole.draw(0.8);
       for (let fairy of this.fairies) {
         fairy.col[1] = 10;
@@ -204,30 +202,12 @@ class Environment {
         fairy.guided = false;
         fairy.draw();
       }
-      push()
-      fill([240, 12, 12])
-      textSize(40)
-      textFont(gameOverFont);
-      // let ts1 = "only the void"
-      let ts1 = "ONLY THE VOID"
-      let ts1_w = textWidth(ts1)
-      let ts2 = "REMAINS"
-      let ts2_w = textWidth(ts2)
-      text(ts1, width / 2 - ts1_w / 2, height / 2)
-      text(ts2, width / 2 - ts2_w / 2, height / 2 + 40)
-      pop()
+      this.writeGameOverText();
+
     } else {
       // won
       this.oasis.draw();
-      push()
-      if (round(frameCount) % 30 == 0) {
-        this.blackHole.col[0] = (this.blackHole.col[0] + 7) % 360;
-      }
-      fill(this.blackHole.col);
-      textSize(40);
-      let ts = textWidth("All pixlies are safe!")
-      text("All pixlies are safe!", width / 2 - ts / 2, height / 2)
-      pop()
+      this.writeGameWonText();
       for (let fairy of this.fairies) {
         fairy.saved = true;
         fairy.danceTimer = new Timer(100);
@@ -237,6 +217,34 @@ class Environment {
   }
 
   // helper functions
+  writeGameWonText() {
+    push()
+    if (round(frameCount) % 30 == 0) {
+      this.blackHole.col[0] = (this.blackHole.col[0] + 7) % 360;
+    }
+    fill(this.blackHole.col);
+    textSize(40);
+    let winText = "All pixlies are safe!"
+    winText = "Thanks for saving us!"
+    let ts = textWidth(winText)
+    text(winText, width / 2 - ts / 2, height / 2)
+    pop()
+  }
+
+  writeGameOverText() {
+    push()
+    fill([240, 12, 12])
+    textSize(40)
+    textFont(gameOverFont);
+    let ts1 = "ONLY THE VOID"
+    let ts1_w = textWidth(ts1)
+    let ts2 = "REMAINS"
+    let ts2_w = textWidth(ts2)
+    text(ts1, width / 2 - ts1_w / 2, height / 2)
+    text(ts2, width / 2 - ts2_w / 2, height / 2 + 40)
+    pop()
+  }
+
   colorAvailable(fairy) {
     let available = true;
     for (let col of state.availableColors) {
@@ -306,11 +314,9 @@ class Guide {
       this.x, this.y, 0,   // inner rad
       this.x, this.y, this.attractionRad);  // outer rad
     // !!! THIS IS NOT HSB !!!
-    // let colorString = "hsla(" + this.displayCol[0] + ", " + this.displayCol[1] + "%, " + this.displayCol[2] + "%, "
     let colorString = "rgba(" + this.displayCol[0] + ", " + this.displayCol[1] + ", " + this.displayCol[2] + ", "
     myGradient.addColorStop(0, colorString + '1)');
     myGradient.addColorStop(midStop, colorString + '0.4)');
-    // myGradient.addColorStop(0.8, colorString + '0.1)');
     myGradient.addColorStop(1, colorString + '0)');
 
     return myGradient;
@@ -334,7 +340,7 @@ class BlackHole extends Guide {
     super()
     this.x = random(width);
     this.y = random(height);
-    this.vMax = 2;
+    this.vMax = 1.5;
     this.initialSize = this.size;
     this.v = random(this.vMax);
     this.shrinkGuide = 0.1;
@@ -419,7 +425,7 @@ class Oasis {
     this.m = 1;
     this.vMin = 1;
     this.vMax = 2;
-    this.absoluteVMax = 6;
+    this.absoluteVMax = 4;
     this.vx = random(this.vMax * 2) - this.vMax;
     this.vy = random((this.vMax - this.vx) * 2) - (this.vMax - this.vx);
     this.col = color;
@@ -428,9 +434,14 @@ class Oasis {
     this.currentlySaved = 0;
     this.bounces = 0;
     this.bounceMax = 15;
+    this.indicateTransfer = false;
+    this.ogSize = this.size;
+    this.angleIncrement = 5;
+    this.angle = this.angleIncrement;
   }
 
   expand() {
+    // used for quickly expanding oasis if game won
     for (let i = 0; i < 3; i++) {
       this.increaseSize();
     }
@@ -438,6 +449,7 @@ class Oasis {
 
   increaseSize() {
     this.size += this.sizeIncrement;
+    this.ogSize = this.size;
     this.m = Math.max(1, this.currentlySaved);
   }
 
@@ -451,6 +463,7 @@ class Oasis {
     this.fairyCapacity = map(random(), 0, 1, 2, 10)
     this.currentlySaved = 0;
     this.bounces = 0;
+    this.angle = this.angleIncrement;
   }
 
   updateCapacity(fairies) {
@@ -520,18 +533,22 @@ class Oasis {
   }
 
   interact(guide, fairies, canBeSaved) {
-    if (guide.withinOasis(this)) {
-      for (let fairy of fairies) {
-        if (fairy.col[0] == this.col[0] &&
-          fairy.guided &&
-          canBeSaved &&
+    for (let fairy of fairies) {
+      if (fairy.col[0] == this.col[0] &&
+        fairy.guided) {
+        // if correct fairy is guided and guide is on oasis
+        this.indicateTransfer = true;
+        if (canBeSaved &&
           !this.isFull()) {
+          // if enough time has passed hovering 
+          // over the oasis and oasis has capacity
+          this.indicateTransfer = false;
           fairy.isSaved(this);
           this.currentlySaved++;
           this.increaseSize();
-        } else if (fairy.col[0] != this.col[0]) {
-          fairy.collideOasis(this)
         }
+      } else if (fairy.col[0] != this.col[0]) {
+        fairy.collideOasis(this)
       }
     }
   }
@@ -540,6 +557,11 @@ class Oasis {
     push()
     colorMode(HSB)
     noStroke()
+    if (this.indicateTransfer) {
+      fill([...this.col, 0.5])
+      rect(this.x, this.y, this.size * 2, this.size * 2,
+        this.size, this.size, this.size, this.size)
+    }
     fill(this.col);
     rect(this.x, this.y, this.size)
     pop()
