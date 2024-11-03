@@ -1,14 +1,17 @@
 let environ;
-let n = 3;
+let n = 15;
 let font;
 let gameOverFont;
+let infoFont
 
 function preload() {
   font = loadFont('/assets/Selima.ttf');
   gameOverFont = loadFont('/assets/HyperScript.ttf');
+  infoFont = loadFont('/assets/monofonto.otf');
 }
 
 function mouseClicked() {
+  state.started = true
   environ.releaseFairies();
   if (state.won || state.gameOver) {
     environ.reset();
