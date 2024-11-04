@@ -27,6 +27,8 @@ const levelParms = [
 function updateState() {
   let level = state.level;
   state.opponent = levelParms[level].opponent;
+  state.gameOver = false;
+  state.won = false;
 }
 
 function hsbToRgb(hsb) {
@@ -44,17 +46,20 @@ function hsbToRgb(hsb) {
   return rgb_col;
 }
 
-class Timer {
-  constructor(durationInSeconds) {
-    this.timeStart = millis()
-    this.timeEnd = millis() + (durationInSeconds * 1000);
+function colorAvailable(fairy) {
+    let available = true;
+    for (let col of state.availableColors) {
+      if (col[0] == fairy.col[0] &&
+        col[1] == fairy.col[1] &&
+        col[2] == fairy.col[2]
+      ) {
+        available = false;
+      }
+    }
+    return available;
   }
 
-  isOver() {
-    return (millis() >= this.timeEnd);
-  }
-}
-
+// SPLASH SCREENS AND TEXT ====================
 // function to add fairies for info splash screen
 function addInfoFairy(i, environment) {
   let infoFairy = new Fairy(environment.guide)
@@ -86,18 +91,7 @@ function addInfoFairy(i, environment) {
   environment.instructionalFairies.push(infoFairy)
 }
 
-// text for counting how many pixlies are saved during game
-function scoreText(environment) {
-  let scoreText = "pixlies saved: " + environment.savedFairies + "/" + environment.fairies.length;
-  let margin = 10
-  push()
-  textFont(infoFont)
-  textSize(20)
-  fill(environment.guide.col)
-  text(scoreText, 10, height - margin)
-  pop()
-}
-
+// function for initial splash screen
 function instructionText(environment) {
   let textBoxWidth = width / 3
   let x_fairy = (width - textBoxWidth) / 2
@@ -147,3 +141,43 @@ function instructionText(environment) {
   pop()
 }
 
+// text for counting how many pixlies are saved during game
+function scoreText(environment) {
+  let scoreText = "pixlies saved: " + environment.savedFairies + "/" + environment.fairies.length;
+  let margin = 10
+  push()
+  textFont(infoFont)
+  textSize(20)
+  fill(environment.guide.col)
+  text(scoreText, 10, height - margin)
+  pop()
+}
+
+// WON splash screen
+function writeGameWonText(environment) {
+  push()
+  if (round(frameCount) % 30 == 0) {
+    environment.blackHole.col[0] = (environment.blackHole.col[0] + 7) % 360;
+  }
+  fill(environment.blackHole.col);
+  textSize(40);
+  let winText = "Thanks for saving us!"
+  let ts = textWidth(winText)
+  text(winText, width / 2 - ts / 2, height / 2)
+  pop()
+}
+
+// LOSE splash screen
+function writeGameOverText(environment) {
+  push()
+  fill([240, 12, 12])
+  textSize(40)
+  textAlign(CENTER)
+  textFont(gameOverFont);
+  let ts1 = "ONLY THE VOID"
+  let ts1_w = textWidth(ts1) + 20
+  let ts2 = "REMAINS"
+  ts1 += " " + ts2
+  text(ts1, width / 2 - ts1_w / 2, height / 2, ts1_w)
+  pop()
+}

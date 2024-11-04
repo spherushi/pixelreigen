@@ -220,16 +220,22 @@ class Fairy {
       !this.released &&
       !this.saved &&
       this.col[0] == guide.col[0]) {
+      // can we reclaim pixly from the void?
       if (this.captured) {
         this.guided = random() <= guide.recaptureChance ? true : false;
         if (this.guided) {
           this.captured = false;
         }
+      // if nothing interferes, we guide the pixly
       } else {
         this.guided = true;
       }
     } else if (distance > guide.attractionRad * 2) {
-      this.released = false;
+      this.released = false;  // adds a delay to recapturing pixlies
+    } else if (this.col[0] != guide.col[0]) {
+      // otherwise oasis changing color due to fulness
+      // can leave pixly guided even though it shouldn't be
+      this.guided = false;
     }
   }
 
