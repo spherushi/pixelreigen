@@ -3,6 +3,7 @@ const state = {
   opponent: true,
   gameOver: false,
   won: false,
+  oasisMoving: false,
   level: 0,
   // colors:
   availableColors: [],
@@ -15,18 +16,27 @@ const levelParms = [
   // level 0
   {
     opponent: false,
-    nFairies: 3
+    oasisMoving: false,
+    nFairies: 1
   },
   // level 1
   {
     opponent: true,
-    nFairies: 15
+    oasisMoving: false,
+    nFairies: 1 //15
+  },
+  // level 2
+  {
+    opponent: true,
+    oasisMoving: true,
+    nFairies: 1 //15
   }
 ]
 
 function updateState() {
   let level = state.level;
   state.opponent = levelParms[level].opponent;
+  state.oasisMoving = levelParms[level].oasisMoving
   state.gameOver = false;
   state.won = false;
 }
@@ -47,17 +57,17 @@ function hsbToRgb(hsb) {
 }
 
 function colorAvailable(fairy) {
-    let available = true;
-    for (let col of state.availableColors) {
-      if (col[0] == fairy.col[0] &&
-        col[1] == fairy.col[1] &&
-        col[2] == fairy.col[2]
-      ) {
-        available = false;
-      }
+  let available = true;
+  for (let col of state.availableColors) {
+    if (col[0] == fairy.col[0] &&
+      col[1] == fairy.col[1] &&
+      col[2] == fairy.col[2]
+    ) {
+      available = false;
     }
-    return available;
   }
+  return available;
+}
 
 // SPLASH SCREENS AND TEXT ====================
 // function to add fairies for info splash screen
