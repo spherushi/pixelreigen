@@ -98,7 +98,10 @@ class Environment {
         this.blackHole.interactGuide(this.guide);
         this.blackHole.interactOasis(this.oasis);
         this.blackHole.grow(this.capturedFairies);
-        if (this.capturedFairies <= 1) {
+        // if (this.capturedFairies <= 1) {
+        if (state.followOasis) {
+          this.blackHole.follow(this.oasis)
+        } else if (state.followGuide) {
           this.blackHole.follow(this.guide)
         }
       }
@@ -147,9 +150,9 @@ class Environment {
       if (!state.won &&
         this.savedFairies == this.fairies.length &&
         state.level >= 0 &&
-        state.level < 2) {
+        state.level < levelParms.length - 1) {
         // state.level = 1;
-        state.level = Math.min(2, state.level + 1)
+        state.level = Math.min(levelParms.length - 1, state.level + 1)
         console.log(state.level)
         state.started = false;
         updateState();
@@ -158,7 +161,7 @@ class Environment {
       // WIN
       else if (!state.won &&
         this.savedFairies == this.fairies.length &&
-        state.level >= 2) {
+        state.level >= levelParms.length - 1) {
         console.log("win")
         state.won = true;
         // graduate from info level
@@ -183,7 +186,9 @@ class Environment {
     // initial splash screen
     if (!state.started) {
       // console.log("splash screen")
-      instructionText(this)
+      if (state.level == 0 || state.level == 1) {
+        instructionText(this)
+      }
     }
     // playing
     else if (!state.gameOver && !state.won) {
@@ -344,7 +349,12 @@ class BlackHole extends Guide {
 
   interactOasis(oasis) {
     if (dist(this.x, this.y, oasis.x, oasis.y) <= this.attractionRad + oasis.size) {
-      this.collideOasis(oasis)
+      if (state.followGuide) {
+        // oasis.relocate();
+        this.collideOasis(oasis)
+      } else {
+        oasis.relocate();
+      }
     }
   }
 
@@ -356,13 +366,14 @@ class BlackHole extends Guide {
     }
   }
 
-  follow(guide) {
-    if (this.x <= guide.x) {
+  follow(target) {
+    // can follow guide OR oasis!
+    if (this.x <= target.x) {
       this.x += this.vMax;
     } else {
       this.x -= this.vMax;
     }
-    if (this.y <= guide.y) {
+    if (this.y <= target.y) {
       this.y += this.vMax;
     } else {
       this.y -= this.vMax;
@@ -510,16 +521,20 @@ class Oasis {
     }
   }
 
+  relocate() {
+    this.x = random(this.size, width - this.size)
+    this.y = random(this.size, width - this.size)
+    this.repositionTimer = new Timer(this.respawnTime)
+  }
+
   move() {
     if (state.oasisMoving) {
       this.x += this.vx;
       this.y += this.vy;
-      this.bounceOffWalls();
     } else if (!state.oasisMoving && this.repositionTimer.isOver()) {
-      this.x = random(this.size, width - this.size)
-      this.y = random(this.size, width - this.size)
-      this.repositionTimer = new Timer(this.respawnTime)
+      this.relocate();
     }
+    this.bounceOffWalls();
     // console.log(this.vx + ", " + this.vy + ": " + (this.vx + this.vy))
   }
 

@@ -4,7 +4,9 @@ const state = {
   gameOver: false,
   won: false,
   oasisMoving: false,
-  level: 0,
+  followGuide: false,
+  followOasis: false,
+  level: 1,
   // colors:
   availableColors: [],
   current_col: [],
@@ -17,19 +19,32 @@ const levelParms = [
   {
     opponent: false,
     oasisMoving: false,
-    nFairies: 1
+    followGuide: false,
+    followOasis: false,
+    nFairies: 7
   },
   // level 1
   {
     opponent: true,
     oasisMoving: false,
-    nFairies: 1 //15
+    followGuide: false,
+    followOasis: true,
+    nFairies: 10 //15
   },
   // level 2
   {
     opponent: true,
     oasisMoving: true,
-    nFairies: 1 //15
+    followGuide: false,
+    followOasis: true,
+    nFairies: 10 //15
+  },
+  {
+    opponent: true,
+    oasisMoving: true,
+    followGuide: true,
+    followOasis: false,
+    nFairies: 10 //15
   }
 ]
 
@@ -37,6 +52,8 @@ function updateState() {
   let level = state.level;
   state.opponent = levelParms[level].opponent;
   state.oasisMoving = levelParms[level].oasisMoving
+  state.followGuide = levelParms[level].followGuide
+  state.followOasis = levelParms[level].followOasis
   state.gameOver = false;
   state.won = false;
 }
@@ -104,8 +121,10 @@ function addInfoFairy(i, environment) {
 // function for initial splash screen
 function instructionText(environment) {
   let textBoxWidth = width / 3
-  let x_fairy = (width - textBoxWidth) / 2
+  let x_fairy = (width - textBoxWidth * 1.5) / 2
   let y_fairy = height / 4
+  let y_guide = height / 2
+  let y_oasis = height * 3 / 4
   push()
   textFont(infoFont)
   textSize(state.infoFontSize)
@@ -114,37 +133,41 @@ function instructionText(environment) {
   if (!state.opponent) {
     for (let fairy of environment.instructionalFairies) {
       fairy.updateVelocityFree();
+      if (fairy.waveToGuide) {
+        fairy.displayCol = environment.guide.col
+      }
       if (fairy.guided) {
         fairy.updateVelocity(environment.guide)
       }
       fairy.move(environment.dt)
       fairy.isCaptured(environment.blackHole)
-      if (fairy.waveToGuide) {
-        fairy.isGuided(environment.guide)
-        fairy.displayCol = environment.guide.col
-      }
       fairy.draw()
     }
-    let infoFairies = "The pixlies are lost in the dark"
-    text(infoFairies, x_fairy, y_fairy, textBoxWidth)
+    let infoFairies = "After the cataclysm, the pixlies are lost in the dark"
+    text(infoFairies, x_fairy, y_fairy, textBoxWidth * 1.5)
     let textGuide = "Collect resonating pixlies"
     environment.guide.x = width / 4
-    environment.guide.y = height / 2 + state.infoFontSize
+    environment.guide.y = y_guide
     environment.guide.draw()
-    text(textGuide, width / 3 + 20, height / 2 + state.infoFontSize, textBoxWidth + 10)
+    text(textGuide, width / 3 + 20, y_guide + 1 * state.infoFontSize, textBoxWidth + 10)
 
     let textOasis = "and guide them to the oasis to keep them safe"
     environment.oasis.x = width * 3 / 4
-    environment.oasis.y = height * 3 / 4 - state.infoFontSize
+    environment.oasis.y = y_oasis + 2 * state.infoFontSize
     environment.oasis.draw()
-    text(textOasis, width / 4, 3 / 4 * height - state.infoFontSize * 3, textBoxWidth * 1.6)
+    text(textOasis, width / 4, y_oasis, textBoxWidth * 1.6)
 
   } else {
-    let infoVoid = "The pixlies are in danger of being sucked into the void"
-    let y_void = y_fairy + 4 * state.infoFontSize
-    text(infoVoid, x_fairy / 2, y_void, textBoxWidth * 2)
+    let firstThanks = "Thanks to your guidance, some pixlies are safe!"
+    let infoVoid = "But their increased activity has awakened the darkness"
+    let infoVoid2 = "and the pixlies are in danger of being sucked into the void"
+    let y_void = height / 4
+    text(firstThanks, x_fairy / 2, y_void, textBoxWidth * 1.5)
+    text(infoVoid, x_fairy, y_void * 2, textBoxWidth * 1.5)
+    text(infoVoid2, x_fairy, y_void * 3, textBoxWidth * 1.5)
     environment.blackHole.x = x_fairy * 2
-    environment.blackHole.y = y_void + state.infoFontSize * 3
+    environment.blackHole.y = y_void * 2.5
+    environment.blackHole.attractionRad = width/2
     environment.blackHole.draw()
   }
 

@@ -58,10 +58,11 @@ class Fairy {
     this.isGuided(guide);
     if (this.guided) {
       this.updateVelocity(guide);
+      this.displayCol = [this.col[0], 40, 50];
     } else if (this.captured) {
       this.updateVelocity(blackHole);
     } else {
-      this.updateVelocityFree();
+      this.updateVelocityFree(guide);
     }
     if (this.saved) {
       this.rad = this.ogRad * sin(millis() / 1000 + this.phase)
@@ -71,12 +72,16 @@ class Fairy {
     }
   }
 
-  updateVelocityFree() {
+  updateVelocityFree(guide) {
     if (this.saved) {
       this.angle += TWO_PI / 100 * this.rotDir;
     } else {
       this.vx = random(this.vMax) * (random() <= 0.5 ? -1 : 1);
       this.vy = random(this.vMax) * (random() <= 0.5 ? 1 : -1);
+      if (this.col[0] == guide.col[0]) {
+        this.vx *= 2;
+        this.vy *= 4;
+      }
     }
   }
 
@@ -121,7 +126,7 @@ class Fairy {
   updateVelocity(guide) {
     const inertia = 0;
     const min_speed = 0.01;
-    const max_speed = 50;
+    const max_speed = 90;
     let accel = this.updateAccel(guide)
 
     // apply acceleration to velocities
@@ -201,7 +206,7 @@ class Fairy {
 
   isCaptured(blackHole) {
     let distance = dist(this.x, this.y, blackHole.x, blackHole.y)
-    if (distance <= blackHole.attractionRad && 
+    if (distance <= blackHole.attractionRad &&
       !this.recaptured &&
       !this.saved) {
       this.captured = true;
