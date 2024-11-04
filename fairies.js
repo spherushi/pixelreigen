@@ -34,6 +34,7 @@ class Fairy {
     this.captured = false;
     this.guided = false;
     this.released = false;
+    this.recaptured = false;
     this.waveToGuide = false;
     // when saved
     this.saved = false;
@@ -50,11 +51,11 @@ class Fairy {
 
   update(guide, blackHole, dt, oasis) {
     this.moveAll(dt, oasis);
-    this.isGuided(guide);
     this.isCloseToGuide(guide);
     if (state.opponent) {
       this.isCaptured(blackHole)
     }
+    this.isGuided(guide);
     if (this.guided) {
       this.updateVelocity(guide);
     } else if (this.captured) {
@@ -168,10 +169,6 @@ class Fairy {
   move(dt) {
     this.x += this.vx * dt;
     this.y += this.vy * dt;
-
-    // wrap around canvas
-    this.x = (width + this.x) % width;
-    this.y = (height + this.y) % height;
   }
 
   moveSaved(oasis) {
@@ -204,13 +201,18 @@ class Fairy {
 
   isCaptured(blackHole) {
     let distance = dist(this.x, this.y, blackHole.x, blackHole.y)
-    if (distance <= blackHole.attractionRad && !this.saved) {
+    if (distance <= blackHole.attractionRad && 
+      !this.recaptured &&
+      !this.saved) {
       this.captured = true;
       this.displayCol = [this.col[0], 10, 30]
       this.drag = 0.5;
       blackHole.capturedFairies++;
     } else {
       this.drag = 0.95
+    }
+    if (distance >= blackHole.attractionRad * 2) {
+      this.recaptured = false;
     }
   }
 
@@ -225,8 +227,9 @@ class Fairy {
         this.guided = random() <= guide.recaptureChance ? true : false;
         if (this.guided) {
           this.captured = false;
+          this.recaptured = true;
         }
-      // if nothing interferes, we guide the pixly
+        // if nothing interferes, we guide the pixly
       } else {
         this.guided = true;
       }

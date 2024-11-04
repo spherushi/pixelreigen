@@ -421,7 +421,6 @@ class Oasis {
     this.increaseSize();
     this.vMax += this.vIncrement;
     this.vMax = Math.min(this.vMax, this.absoluteVMax);
-    console.log(this.vMax)
     this.x = random(this.size, width - this.size);
     this.y = random(this.size, height - this.size);
     this.vx = random(this.vMax * 2) - this.vMax;
