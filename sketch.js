@@ -1,5 +1,5 @@
 let environ;
-let n = 15;
+let n = levelParms[0].nFairies;  // take from level 1
 let font;
 let gameOverFont;
 let infoFont
@@ -26,6 +26,7 @@ function setup() {
   ellipseMode(RADIUS);
   rectMode(RADIUS);
   createCanvas(windowWidth, windowHeight);
+  updateState();
   environ = new Environment(n);
 }
 
