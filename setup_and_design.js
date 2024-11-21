@@ -6,7 +6,7 @@ const state = {
   oasisMoving: false,
   followGuide: false,
   followOasis: false,
-  level: 1,
+  level: 0,
   // colors:
   availableColors: [],
   current_col: [],
@@ -39,6 +39,7 @@ const levelParms = [
     followOasis: true,
     nFairies: 10 //15
   },
+  // level 3
   {
     opponent: true,
     oasisMoving: true,
@@ -130,9 +131,9 @@ function instructionText(environment) {
   textSize(state.infoFontSize)
   fill(environment.guide.col)
   textAlign(CENTER)
-  if (!state.opponent) {
+  if (!state.opponent) {  // level 0
     for (let fairy of environment.instructionalFairies) {
-      fairy.updateVelocityFree();
+      fairy.updateVelocityFree(environment.guide);
       if (fairy.waveToGuide) {
         fairy.displayCol = environment.guide.col
       }
@@ -156,8 +157,7 @@ function instructionText(environment) {
     environment.oasis.y = y_oasis + 2 * state.infoFontSize
     environment.oasis.draw()
     text(textOasis, width / 4, y_oasis, textBoxWidth * 1.6)
-
-  } else {
+  } else if (state.level == 1) {
     let firstThanks = "Thanks to your guidance, some pixlies are safe!"
     let infoVoid = "But their increased activity has awakened the darkness"
     let infoVoid2 = "and the pixlies are in danger of being sucked into the void"
@@ -167,9 +167,22 @@ function instructionText(environment) {
     text(infoVoid2, x_fairy, y_void * 3, textBoxWidth * 1.5)
     environment.blackHole.x = x_fairy * 2
     environment.blackHole.y = y_void * 2.5
-    environment.blackHole.attractionRad = width/2
+    environment.blackHole.attractionRad = width / 2
     environment.blackHole.draw()
+  } else if (state.level == 2) {
+    let firstLine = "The rescued pixlies have strenghtened the oasis"
+    let infoVoid = "but the void is still following close behind!"
+    let y_void = height / 3
+    text(firstLine, x_fairy / 1.5, y_void, textBoxWidth * 1.5)
+    text(infoVoid, x_fairy * 1.5, y_void * 2, textBoxWidth * 1.5)
+  } else if (state.level == 3) {
+    let firstLine = "The oasis can now withstand the void,"
+    let infoVoid = "but now you are its prey!"
+    let y_void = height / 3
+    text(firstLine, x_fairy / 1.5, y_void, textBoxWidth * 1.5)
+    text(infoVoid, x_fairy * 1.5, y_void * 2, textBoxWidth * 1.5)
   }
+
 
   pop()
 }

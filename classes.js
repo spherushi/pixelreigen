@@ -184,11 +184,9 @@ class Environment {
   draw() {
     background(this.skyCol);
     // initial splash screen
-    if (!state.started) {
+    if (!state.started && !state.won) {
       // console.log("splash screen")
-      if (state.level == 0 || state.level == 1) {
-        instructionText(this)
-      }
+      instructionText(this)
     }
     // playing
     else if (!state.gameOver && !state.won) {

@@ -5,9 +5,9 @@ let gameOverFont;
 let infoFont
 
 function preload() {
-  font = loadFont('/assets/Selima.ttf');
-  gameOverFont = loadFont('/assets/HyperScript.ttf');
-  infoFont = loadFont('/assets/monofonto.otf');
+  font = loadFont('/assets/Selima.woff');
+  gameOverFont = loadFont('/assets/HyperScrypt-Stencil_web.woff')
+  infoFont = loadFont('/assets/monofonto.woff');
 }
 
 function mouseClicked() {
